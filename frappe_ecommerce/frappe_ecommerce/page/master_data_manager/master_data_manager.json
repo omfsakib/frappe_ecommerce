@@ -1,0 +1,19 @@
+{
+ "content": null,
+ "creation": "2026-05-11 22:09:26.336719",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-05-11 22:09:26.336719",
+ "modified_by": "Administrator",
+ "module": "Frappe Ecommerce",
+ "name": "master-data-manager",
+ "owner": "Administrator",
+ "page_name": "master-data-manager",
+ "roles": [],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Master Data Manager"
+}

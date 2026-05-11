@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product — THREAD</title>
+  <meta name="description" content="Product detail page for THREAD premium fashion." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0d0d;
+      --surface: #161616;
+      --card: #1a1a1a;
+      --border: #2a2a2a;
+      --accent: #c8a97e;
+      --accent2: #e8c9a0;
+      --text: #f0ece6;
+      --muted: #888;
+      --white: #fff;
+    }
+
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* NAV */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 48px; height: 72px;
+      background: rgba(13,13,13,0.85); backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo {
+      font-family: 'Playfair Display', serif; font-size: 22px;
+      letter-spacing: 4px; color: var(--accent); text-decoration: none;
+    }
+    .nav-back {
+      display: flex; align-items: center; gap: 8px;
+      color: var(--muted); text-decoration: none; font-size: 13px;
+      letter-spacing: 1px; transition: color 0.2s;
+    }
+    .nav-back:hover { color: var(--text); }
+    .nav-cart {
+      position: relative; cursor: pointer;
+      background: none; border: none; color: var(--text);
+    }
+    .cart-badge {
+      position: absolute; top: -6px; right: -8px;
+      background: var(--accent); color: #000;
+      border-radius: 50%; width: 18px; height: 18px;
+      font-size: 10px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* BREADCRUMB */
+    .breadcrumb {
+      padding: 20px 48px 0;
+      font-size: 12px; color: var(--muted);
+      display: flex; gap: 8px; align-items: center;
+    }
+    .breadcrumb a { color: var(--muted); text-decoration: none; transition: color 0.2s; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb span { color: var(--accent); }
+
+    /* PRODUCT LAYOUT */
+    .product-wrap {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 60px; padding: 40px 48px 80px;
+      max-width: 1200px;
+    }
+
+    /* GALLERY */
+    .gallery { display: flex; flex-direction: column; gap: 16px; }
+    .gallery-main {
+      aspect-ratio: 3/4; overflow: hidden; background: var(--card);
+      position: relative;
+    }
+    .gallery-main img {
+      width: 100%; height: 100%; object-fit: cover;
+      transition: transform 0.5s;
+    }
+    .gallery-main:hover img { transform: scale(1.03); }
+    .gallery-badge {
+      position: absolute; top: 20px; left: 20px;
+      padding: 5px 12px; background: var(--accent); color: #000;
+      font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+    }
+    .gallery-thumbs { display: flex; gap: 12px; }
+    .thumb {
+      width: 80px; height: 100px; object-fit: cover;
+      background: var(--card); cursor: pointer;
+      border: 2px solid transparent; transition: border-color 0.2s;
+    }
+    .thumb.active { border-color: var(--accent); }
+    .thumb:hover { border-color: var(--muted); }
+
+    /* INFO PANEL */
+    .info { padding-top: 16px; }
+    .info-cat {
+      font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 12px;
+    }
+    .info h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(26px, 3vw, 38px);
+      color: var(--white); margin-bottom: 20px; line-height: 1.2;
+    }
+    .info-price-row { display: flex; align-items: baseline; gap: 14px; margin-bottom: 28px; }
+    .info-price { font-size: 28px; font-weight: 700; color: var(--accent); }
+    .info-price-old { font-size: 16px; color: var(--muted); text-decoration: line-through; }
+    .info-price-save {
+      font-size: 11px; padding: 3px 8px;
+      background: rgba(200,169,126,0.15); color: var(--accent);
+      border: 1px solid rgba(200,169,126,0.3);
+    }
+
+    .info-label {
+      font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 12px;
+    }
+
+    /* COLOR SWATCHES */
+    .swatches { display: flex; gap: 10px; margin-bottom: 28px; }
+    .swatch-btn {
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 3px solid transparent; cursor: pointer;
+      transition: all 0.2s; outline: 2px solid transparent;
+    }
+    .swatch-btn.active { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+    /* SIZE GRID */
+    .size-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
+    .size-btn {
+      padding: 10px 18px;
+      border: 1px solid var(--border); background: none;
+      color: var(--muted); font-size: 13px;
+      cursor: pointer; transition: all 0.2s;
+      min-width: 52px; text-align: center;
+    }
+    .size-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .size-btn.active { border-color: var(--accent); background: var(--accent); color: #000; font-weight: 600; }
+    .size-btn.oos { opacity: 0.35; cursor: not-allowed; text-decoration: line-through; }
+
+    /* QUANTITY */
+    .qty-row { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
+    .qty-control {
+      display: flex; align-items: center;
+      border: 1px solid var(--border);
+    }
+    .qty-btn {
+      width: 44px; height: 44px; background: none; border: none;
+      color: var(--text); cursor: pointer; font-size: 20px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+    }
+    .qty-btn:hover { background: var(--card); }
+    .qty-val {
+      width: 50px; text-align: center; font-size: 15px;
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      padding: 12px 0;
+    }
+
+    /* ACTIONS */
+    .actions { display: flex; gap: 12px; margin-bottom: 36px; }
+    .btn-add {
+      flex: 1; padding: 16px;
+      background: var(--accent); color: #000;
+      font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+      border: none; cursor: pointer; transition: background 0.2s;
+    }
+    .btn-add:hover { background: var(--accent2); }
+    .btn-wish {
+      width: 54px; height: 54px;
+      border: 1px solid var(--border); background: none;
+      color: var(--muted); cursor: pointer; transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .btn-wish:hover { border-color: #e53935; color: #e53935; }
+    .btn-wish.active { border-color: #e53935; color: #e53935; fill: #e53935; }
+
+    /* DESCRIPTION */
+    .info-divider { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+    .info-desc { font-size: 14px; color: var(--muted); line-height: 1.8; margin-bottom: 24px; }
+    .info-features { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .info-features li {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 13px; color: var(--muted);
+    }
+    .info-features li::before {
+      content: ''; display: block;
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--accent); flex-shrink: 0;
+    }
+
+    /* TOAST */
+    .toast {
+      position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: var(--surface); border: 1px solid var(--accent);
+      color: var(--text); padding: 12px 24px;
+      font-size: 13px; z-index: 300;
+      opacity: 0; pointer-events: none;
+      transition: all 0.3s;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* RELATED */
+    .related { padding: 0 48px 80px; }
+    .related h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 24px; color: var(--white);
+      margin-bottom: 24px;
+    }
+    .related-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+    }
+    .rel-card {
+      cursor: pointer; background: var(--card);
+      transition: transform 0.3s;
+    }
+    .rel-card:hover { transform: translateY(-4px); }
+    .rel-card img {
+      width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block;
+      background: #222; transition: transform 0.4s;
+    }
+    .rel-card:hover img { transform: scale(1.04); }
+    .rel-card-body { padding: 14px 16px; }
+    .rel-cat { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+    .rel-name { font-size: 13px; color: var(--white); margin-bottom: 6px; }
+    .rel-price { font-size: 14px; font-weight: 600; color: var(--accent); }
+
+    @media (max-width: 900px) {
+      .product-wrap { grid-template-columns: 1fr; gap: 32px; padding: 24px 20px 60px; }
+      nav { padding: 0 20px; }
+      .breadcrumb { padding: 16px 20px 0; }
+      .related { padding: 0 20px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="/shop" class="nav-logo">THREAD</a>
+  <a href="/shop" class="nav-back">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M19 12H5M12 5l-7 7 7 7"/>
+    </svg>
+    Back to Shop
+  </a>
+  <button class="nav-cart" onclick="alert('Cart — go to /shop')">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
+    </svg>
+    <span class="cart-badge">0</span>
+  </button>
+</nav>
+
+<div class="breadcrumb">
+  <a href="/shop">Shop</a> › <a href="/shop" id="bc-cat">T-Shirts</a> › <span id="bc-name">Product</span>
+</div>
+
+<div class="product-wrap">
+
+  <!-- GALLERY -->
+  <div class="gallery">
+    <div class="gallery-main">
+      <img id="main-img" src="" alt="Product" />
+      <span class="gallery-badge" id="prod-badge" style="display:none"></span>
+    </div>
+    <div class="gallery-thumbs" id="thumbs-row"></div>
+  </div>
+
+  <!-- INFO -->
+  <div class="info">
+    <div class="info-cat" id="info-cat"></div>
+    <h1 id="info-name"></h1>
+
+    <div class="info-price-row">
+      <span class="info-price" id="info-price"></span>
+      <span class="info-price-old" id="info-old" style="display:none"></span>
+      <span class="info-price-save" id="info-save" style="display:none"></span>
+    </div>
+
+    <div class="info-label">Color</div>
+    <div class="swatches" id="swatches"></div>
+
+    <div class="info-label">Size</div>
+    <div class="size-grid" id="sizes"></div>
+
+    <div class="info-label">Quantity</div>
+    <div class="qty-row">
+      <div class="qty-control">
+        <button class="qty-btn" onclick="changeQty(-1)">−</button>
+        <span class="qty-val" id="qty-val">1</span>
+        <button class="qty-btn" onclick="changeQty(1)">+</button>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-add" id="btn-add" onclick="addToCart()">Add to Bag</button>
+      <button class="btn-wish" id="btn-wish" onclick="toggleWish()" title="Wishlist">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+        </svg>
+      </button>
+    </div>
+
+    <hr class="info-divider" />
+    <p class="info-desc" id="info-desc"></p>
+    <ul class="info-features" id="info-features"></ul>
+  </div>
+</div>
+
+<!-- RELATED -->
+<div class="related">
+  <h2>You Might Also Like</h2>
+  <div class="related-grid" id="related-grid"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const PRODUCTS = [
+  {
+    id: 1, name: "Classic Graphic Tee", category: "T-Shirt",
+    price: 1200, oldPrice: 1500, badge: "SALE",
+    colors: [{name:"Navy",hex:"#1a237e"},{name:"Black",hex:"#000"},{name:"White",hex:"#f5f5f5"}],
+    sizes: [{s:"XS",oos:false},{s:"S",oos:false},{s:"M",oos:false},{s:"L",oos:false},{s:"XL",oos:true}],
+    img: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80",
+    thumbs: [
+      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=200&q=80",
+      "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=200&q=80",
+      "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=200&q=80"
+    ],
+    desc: "A timeless graphic tee crafted from 100% premium combed cotton. Soft, breathable, and built to last season after season.",
+    features: ["100% Combed Cotton","Pre-washed for softness","Regular fit","Machine washable"]
+  },
+  {
+    id: 2, name: "Essential Black Tee", category: "T-Shirt",
+    price: 950,
+    colors: [{name:"Black",hex:"#000"},{name:"Charcoal",hex:"#555"},{name:"Brown",hex:"#8b4513"}],
+    sizes: [{s:"XS",oos:false},{s:"S",oos:false},{s:"M",oos:false},{s:"L",oos:false},{s:"XL",oos:false}],
+    img: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&q=80",
+    thumbs: [
+      "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=200&q=80",
+      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=200&q=80"
+    ],
+    desc: "The essential tee every wardrobe needs. Ultra-soft fabric with a clean minimal silhouette for everyday wear.",
+    features: ["Heavyweight 220 GSM cotton","Ribbed crew neck","Relaxed fit","Fade-resistant dye"]
+  },
+  {
+    id: 3, name: "Oversized White Drop", category: "T-Shirt",
+    price: 1400, badge: "NEW",
+    colors: [{name:"White",hex:"#fff"},{name:"Light Grey",hex:"#e0e0e0"},{name:"Silver",hex:"#bdbdbd"}],
+    sizes: [{s:"S",oos:false},{s:"M",oos:false},{s:"L",oos:false},{s:"XL",oos:false},{s:"XXL",oos:false}],
+    img: "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=800&q=80",
+    thumbs: [
+      "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=200&q=80",
+      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=200&q=80"
+    ],
+    desc: "An oversized drop-shoulder tee with a luxuriously smooth feel. Perfect for layering or wearing solo.",
+    features: ["Drop-shoulder cut","Oversized silhouette","Pure white 200 GSM cotton","Minimal branding"]
+  },
+  {
+    id: 4, name: "Indigo Slim Jeans", category: "Pant",
+    price: 2800, oldPrice: 3200, badge: "SALE",
+    colors: [{name:"Indigo",hex:"#1a237e"},{name:"Dark",hex:"#263238"},{name:"Black",hex:"#000"}],
+    sizes: [{s:"30",oos:false},{s:"32",oos:false},{s:"34",oos:false},{s:"36",oos:true}],
+    img: "https://images.unsplash.com/photo-1542272604-787c3835535d?w=800&q=80",
+    thumbs: [
+      "https://images.unsplash.com/photo-1542272604-787c3835535d?w=200&q=80",
+      "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=200&q=80"
+    ],
+    desc: "Slim-fit indigo jeans with a subtle stretch for all-day comfort. Premium denim with modern tailoring.",
+    features: ["98% Cotton 2% Elastane","Slim tapered fit","Reinforced stitching","5-pocket construction"]
+  },
+  {
+    id: 5, name: "Beige Slim Chino", category: "Pant",
+    price: 2400, badge: "NEW",
+    colors: [{name:"Beige",hex:"#d7ccc8"},{name:"Khaki",hex:"#a1887f"},{name:"Brown",hex:"#4e342e"}],
+    sizes: [{s:"30",oos:false},{s:"32",oos:false},{s:"34",oos:false},{s:"36",oos:false},{s:"38",oos:false}],
+    img: "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&q=80",
+    thumbs: [
+      "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=200&q=80",
+      "https://images.unsplash.com/photo-1542272604-787c3835535d?w=200&q=80"
+    ],
+    desc: "Versatile slim chinos that transition effortlessly from office to weekend. Crafted from premium twill cotton.",
+    features: ["100% Premium Twill Cotton","Flat-front slim cut","Side-seam pockets","Wrinkle-resistant finish"]
+  }
+];
+
+let qty = 1;
+let selectedSize = null;
+let selectedColor = 0;
+let wished = false;
+
+const params = new URLSearchParams(window.location.search);
+const id = parseInt(params.get('id')) || 1;
+const product = PRODUCTS.find(p => p.id === id) || PRODUCTS[0];
+
+function init() {
+  document.title = product.name + ' — THREAD';
+  document.getElementById('bc-cat').textContent = product.category === 'T-Shirt' ? 'T-Shirts' : 'Pants';
+  document.getElementById('bc-name').textContent = product.name;
+  document.getElementById('info-cat').textContent = product.category;
+  document.getElementById('info-name').textContent = product.name;
+  document.getElementById('info-price').textContent = '৳' + product.price.toLocaleString();
+  document.getElementById('info-desc').textContent = product.desc;
+
+  if (product.oldPrice) {
+    document.getElementById('info-old').textContent = '৳' + product.oldPrice.toLocaleString();
+    document.getElementById('info-old').style.display = '';
+    const save = Math.round((1 - product.price / product.oldPrice) * 100);
+    document.getElementById('info-save').textContent = save + '% off';
+    document.getElementById('info-save').style.display = '';
+  }
+
+  if (product.badge) {
+    const b = document.getElementById('prod-badge');
+    b.textContent = product.badge; b.style.display = '';
+  }
+
+  // Main image
+  document.getElementById('main-img').src = product.img;
+
+  // Thumbs
+  const thumbsRow = document.getElementById('thumbs-row');
+  thumbsRow.innerHTML = product.thumbs.map((t, i) =>
+    `<img class="thumb ${i===0?'active':''}" src="${t}" onclick="setThumb(this,'${product.thumbs[i].replace('200','800')}')" />`
+  ).join('');
+
+  // Colors
+  document.getElementById('swatches').innerHTML = product.colors.map((c, i) =>
+    `<button class="swatch-btn ${i===0?'active':''}" style="background:${c.hex}" title="${c.name}" onclick="selectColor(this,${i})"></button>`
+  ).join('');
+
+  // Sizes
+  document.getElementById('sizes').innerHTML = product.sizes.map((sz, i) =>
+    `<button class="size-btn${sz.oos?' oos':''}" onclick="${sz.oos?'':('selectSize(this,\''+sz.s+'\')')}">${sz.s}</button>`
+  ).join('');
+
+  // Features
+  document.getElementById('info-features').innerHTML = product.features.map(f =>
+    `<li>${f}</li>`
+  ).join('');
+
+  // Related
+  const related = PRODUCTS.filter(p => p.id !== product.id).slice(0, 4);
+  document.getElementById('related-grid').innerHTML = related.map(p =>
+    `<div class="rel-card" onclick="location.href='/product?id=${p.id}'">
+      <img src="${p.img}" alt="${p.name}" loading="lazy" />
+      <div class="rel-card-body">
+        <div class="rel-cat">${p.category}</div>
+        <div class="rel-name">${p.name}</div>
+        <div class="rel-price">৳${p.price.toLocaleString()}</div>
+      </div>
+    </div>`
+  ).join('');
+}
+
+function setThumb(el, src) {
+  document.getElementById('main-img').src = src;
+  document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+}
+function selectColor(el, idx) {
+  selectedColor = idx;
+  document.querySelectorAll('.swatch-btn').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+}
+function selectSize(el, size) {
+  selectedSize = size;
+  document.querySelectorAll('.size-btn').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+}
+function changeQty(delta) {
+  qty = Math.max(1, qty + delta);
+  document.getElementById('qty-val').textContent = qty;
+}
+function addToCart() {
+  if (!selectedSize) {
+    showToast('Please select a size first!');
+    return;
+  }
+  showToast(`${product.name} (${selectedSize}) × ${qty} added to bag!`);
+}
+function toggleWish() {
+  wished = !wished;
+  document.getElementById('btn-wish').classList.toggle('active', wished);
+  showToast(wished ? 'Added to wishlist ♥' : 'Removed from wishlist');
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+init();
+</script>
+</body>
+</html>

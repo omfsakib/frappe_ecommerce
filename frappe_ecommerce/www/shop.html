@@ -347,10 +347,8 @@
 <!-- NAV -->
 <nav>
   <a href="/shop" class="nav-logo">THREAD</a>
-  <div class="nav-links">
-    <a href="/shop" class="active">All</a>
-    <a href="#tshirts" onclick="filterCategory('T-Shirt')">T-Shirts</a>
-    <a href="#pants" onclick="filterCategory('Pant')">Pants</a>
+  <div class="nav-links" id="nav-links">
+    <a href="/shop" class="active" onclick="event.preventDefault(); filterCategory('All')">All</a>
   </div>
   <button class="nav-cart" onclick="toggleCart()" aria-label="Cart" id="cart-btn">
     <svg class="cart-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -381,17 +379,15 @@
   </svg>
 </section>
 
-<!-- FILTERS -->
+<!-- FILTERS (dynamically populated) -->
 <div class="filters" id="products">
-  <button class="filter-btn active" id="filter-all" onclick="filterCategory('All')">All</button>
-  <button class="filter-btn" id="filter-tshirt" onclick="filterCategory('T-Shirt')">T-Shirts</button>
-  <button class="filter-btn" id="filter-pant" onclick="filterCategory('Pant')">Pants</button>
+  <button class="filter-btn active" data-category="All" onclick="filterCategory('All')">All</button>
 </div>
 
 <!-- SECTION HEADER -->
 <div class="section-header">
   <h2 id="section-title">All Products</h2>
-  <span id="product-count">5 products</span>
+  <span id="product-count">Loading…</span>
 </div>
 
 <!-- GRID -->
@@ -426,109 +422,147 @@
 <div class="toast" id="toast">Added to bag!</div>
 
 <script>
-const PRODUCTS = [
-  {
-    id: 1, name: "Classic Graphic Tee", category: "T-Shirt",
-    price: 1200, oldPrice: 1500,
-    badge: "SALE",
-    colors: ["#1a237e","#000","#f5f5f5"],
-    sizes: ["S","M","L","XL"],
-    img: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=600&q=80"
-  },
-  {
-    id: 2, name: "Essential Black Tee", category: "T-Shirt",
-    price: 950,
-    colors: ["#000","#555","#8b4513"],
-    sizes: ["XS","S","M","L","XL"],
-    img: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=600&q=80"
-  },
-  {
-    id: 3, name: "Oversized White Drop", category: "T-Shirt",
-    price: 1400,
-    badge: "NEW",
-    colors: ["#fff","#e0e0e0","#bdbdbd"],
-    sizes: ["S","M","L","XL","XXL"],
-    img: "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=600&q=80"
-  },
-  {
-    id: 4, name: "Indigo Slim Jeans", category: "Pant",
-    price: 2800, oldPrice: 3200,
-    badge: "SALE",
-    colors: ["#1a237e","#263238","#000"],
-    sizes: ["30","32","34","36"],
-    img: "https://images.unsplash.com/photo-1542272604-787c3835535d?w=600&q=80"
-  },
-  {
-    id: 5, name: "Beige Slim Chino", category: "Pant",
-    price: 2400,
-    badge: "NEW",
-    colors: ["#d7ccc8","#a1887f","#4e342e"],
-    sizes: ["30","32","34","36","38"],
-    img: "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=600&q=80"
-  }
-];
-
+/* ───── State ───── */
+const USER = "{{ frappe.session.user }}";
+let ALL_PRODUCTS = [];
+let CATEGORIES = [];
 let cart = [];
 let activeCategory = 'All';
 
+/* ───── API Helper ───── */
+function apiCall(method, args) {
+  const params = new URLSearchParams(args || {});
+  const qs = params.toString() ? '?' + params.toString() : '';
+  return fetch('/api/method/' + method + qs)
+    .then(r => r.json()).then(d => d.message);
+}
+
+/* ───── Cookie Helpers ───── */
+function getLocalCart() {
+  const name = "cart=";
+  const decodedCookie = decodeURIComponent(document.cookie);
+  const ca = decodedCookie.split(';');
+  for(let i = 0; i <ca.length; i++) {
+    let c = ca[i];
+    while (c.charAt(0) == ' ') { c = c.substring(1); }
+    if (c.indexOf(name) == 0) {
+      try { return JSON.parse(c.substring(name.length, c.length)); }
+      catch(e) { return []; }
+    }
+  }
+  return [];
+}
+
+function saveLocalCart(items) {
+  const d = new Date();
+  d.setTime(d.getTime() + (30*24*60*60*1000));
+  const expires = "expires="+ d.toUTCString();
+  document.cookie = "cart=" + JSON.stringify(items) + ";" + expires + ";path=/";
+}
+
+async function syncCart() {
+  if (USER !== 'Guest') {
+    await apiCall('frappe_ecommerce.api.storefront.sync_cart', { cart_items: JSON.stringify(cart) });
+  } else {
+    saveLocalCart(cart);
+  }
+}
+
+/* ───── Render Categories (filters + nav) ───── */
+function renderCategories(categories) {
+  CATEGORIES = categories;
+  const filtersEl = document.getElementById('products');
+  const navEl = document.getElementById('nav-links');
+
+  // Build filter buttons: "All" + each category
+  let filterHTML = '<button class="filter-btn active" data-category="All" onclick="filterCategory(\'All\')">All</button>';
+  let navHTML = '<a href="/shop" class="active" onclick="event.preventDefault(); filterCategory(\'All\')">All</a>';
+
+  categories.forEach(cat => {
+    const name = cat.name;
+    const escaped = name.replace(/'/g, "\\'");
+    filterHTML += `<button class="filter-btn" data-category="${name}" onclick="filterCategory('${escaped}')">${name}</button>`;
+    navHTML += `<a href="#" onclick="event.preventDefault(); filterCategory('${escaped}')">${name}</a>`;
+  });
+
+  filtersEl.innerHTML = filterHTML;
+  navEl.innerHTML = navHTML;
+}
+
+/* ───── Render Products ───── */
 function renderProducts(products) {
   const grid = document.getElementById('product-grid');
-  document.getElementById('product-count').textContent = products.length + ' products';
+  document.getElementById('product-count').textContent = products.length + ' product' + (products.length !== 1 ? 's' : '');
+
+  if (products.length === 0) {
+    grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:60px 0; color:var(--muted); font-size:15px;">No products found.</div>';
+    return;
+  }
+
   grid.innerHTML = products.map(p => `
-    <div class="card" onclick="openProduct(${p.id})">
+    <div class="card" onclick="openProduct('${p.name.replace(/'/g, "\\'")}')">
       ${p.badge ? `<span class="card-badge">${p.badge}</span>` : ''}
-      <img class="card-img" src="${p.img}" alt="${p.name}" loading="lazy" />
+      <img class="card-img" src="${p.image || ''}" alt="${p.item_name}" loading="lazy" />
       <div class="card-swatches">
-        ${p.colors.map(c => `<div class="swatch" style="background:${c}" onclick="event.stopPropagation()"></div>`).join('')}
+        ${(p.colors || []).map(c => `<div class="swatch" style="background:${c}" onclick="event.stopPropagation()"></div>`).join('')}
       </div>
       <div class="card-body">
         <div class="card-cat">${p.category}</div>
-        <div class="card-name">${p.name}</div>
+        <div class="card-name">${p.item_name}</div>
         <div class="card-footer">
           <div>
-            <span class="card-price">৳${p.price.toLocaleString()}</span>
-            ${p.oldPrice ? `<span class="card-price-old">৳${p.oldPrice.toLocaleString()}</span>` : ''}
+            <span class="card-price">৳${Number(p.price).toLocaleString()}</span>
+            ${p.old_price ? `<span class="card-price-old">৳${Number(p.old_price).toLocaleString()}</span>` : ''}
           </div>
-          <button class="card-add" onclick="event.stopPropagation(); addToCart(${p.id})" title="Add to bag">
+          <button class="card-add" onclick="event.stopPropagation(); addToCart('${p.name.replace(/'/g, "\\'")}')" title="Add to bag">
             <svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5">
               <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
           </button>
         </div>
         <div class="card-sizes" style="margin-top:10px">
-          ${p.sizes.map(s => `<div class="size-dot">${s}</div>`).join('')}
+          ${(p.sizes || []).map(s => `<div class="size-dot">${s}</div>`).join('')}
         </div>
       </div>
     </div>
   `).join('');
 }
 
+/* ───── Filter ───── */
 function filterCategory(cat) {
   activeCategory = cat;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+
+  // Update filter buttons
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-category') === cat);
+  });
+  // Update nav links
+  document.querySelectorAll('#nav-links a').forEach((a, i) => {
+    const navCats = ['All', ...CATEGORIES.map(c => c.name)];
+    a.classList.toggle('active', navCats[i] === cat);
+  });
+
+  // Update section title
+  document.getElementById('section-title').textContent = cat === 'All' ? 'All Products' : cat;
+
+  // Filter from cached products
   if (cat === 'All') {
-    document.getElementById('filter-all').classList.add('active');
-    document.getElementById('section-title').textContent = 'All Products';
-    renderProducts(PRODUCTS);
-  } else if (cat === 'T-Shirt') {
-    document.getElementById('filter-tshirt').classList.add('active');
-    document.getElementById('section-title').textContent = 'T-Shirts';
-    renderProducts(PRODUCTS.filter(p => p.category === 'T-Shirt'));
+    renderProducts(ALL_PRODUCTS);
   } else {
-    document.getElementById('filter-pant').classList.add('active');
-    document.getElementById('section-title').textContent = 'Pants';
-    renderProducts(PRODUCTS.filter(p => p.category === 'Pant'));
+    renderProducts(ALL_PRODUCTS.filter(p => p.category === cat));
   }
 }
 
-function addToCart(id) {
-  const p = PRODUCTS.find(x => x.id === id);
-  const existing = cart.find(x => x.id === id);
+/* ───── Cart ───── */
+async function addToCart(itemName) {
+  const p = ALL_PRODUCTS.find(x => x.name === itemName);
+  if (!p) return;
+  const existing = cart.find(x => x.name === itemName);
   if (existing) { existing.qty++; }
   else { cart.push({...p, qty: 1}); }
   updateCartUI();
-  showToast('Added to bag — ' + p.name);
+  showToast('Added to bag — ' + p.item_name);
+  await syncCart();
 }
 
 function updateCartUI() {
@@ -543,16 +577,16 @@ function updateCartUI() {
   }
   itemsEl.innerHTML = cart.map(item => `
     <div class="cart-item">
-      <img class="cart-item-img" src="${item.img}" alt="${item.name}" />
+      <img class="cart-item-img" src="${item.image || ''}" alt="${item.item_name}" />
       <div class="cart-item-info">
-        <div class="cart-item-name">${item.name}</div>
+        <div class="cart-item-name">${item.item_name}</div>
         <div class="cart-item-meta">${item.category}</div>
         <div class="cart-item-row">
-          <span class="cart-item-price">৳${item.price.toLocaleString()}</span>
+          <span class="cart-item-price">৳${Number(item.price).toLocaleString()}</span>
           <div class="qty-control">
-            <button class="qty-btn" onclick="changeQty(${item.id}, -1)">−</button>
+            <button class="qty-btn" onclick="changeQty('${item.name.replace(/'/g, "\\'")}', -1)">−</button>
             <span class="qty-val">${item.qty}</span>
-            <button class="qty-btn" onclick="changeQty(${item.id}, 1)">+</button>
+            <button class="qty-btn" onclick="changeQty('${item.name.replace(/'/g, "\\'")}', 1)">+</button>
           </div>
         </div>
       </div>
@@ -560,12 +594,13 @@ function updateCartUI() {
   `).join('');
 }
 
-function changeQty(id, delta) {
-  const idx = cart.findIndex(x => x.id === id);
+async function changeQty(itemName, delta) {
+  const idx = cart.findIndex(x => x.name === itemName);
   if (idx === -1) return;
   cart[idx].qty += delta;
   if (cart[idx].qty <= 0) cart.splice(idx, 1);
   updateCartUI();
+  await syncCart();
 }
 
 function toggleCart() {
@@ -573,8 +608,8 @@ function toggleCart() {
   document.getElementById('cart-drawer').classList.toggle('open');
 }
 
-function openProduct(id) {
-  window.location.href = '/product?id=' + id;
+function openProduct(itemName) {
+  window.location.href = '/product?name=' + encodeURIComponent(itemName);
 }
 
 function showToast(msg) {
@@ -588,8 +623,47 @@ function checkout() {
   showToast('Checkout coming soon!');
 }
 
-// Init
-renderProducts(PRODUCTS);
+/* ───── Init: fetch from backend ───── */
+async function init() {
+  try {
+    // Fetch categories and products in parallel
+    const [categories, products] = await Promise.all([
+      apiCall('frappe_ecommerce.api.storefront.get_categories'),
+      apiCall('frappe_ecommerce.api.storefront.get_products')
+    ]);
+
+    renderCategories(categories || []);
+    ALL_PRODUCTS = products || [];
+    renderProducts(ALL_PRODUCTS);
+
+    // Cart Load
+    if (USER !== 'Guest') {
+      cart = await apiCall('frappe_ecommerce.api.storefront.get_cart') || [];
+      const local = getLocalCart();
+      if (local.length > 0) {
+        local.forEach(l => {
+          const existing = cart.find(c => c.name === l.name);
+          if (existing) { existing.qty += l.qty; }
+          else { cart.push(l); }
+        });
+        saveLocalCart([]); // Clear local after merging
+        await syncCart();
+      }
+    } else {
+      cart = getLocalCart();
+    }
+    updateCartUI();
+
+  } catch (err) {
+    console.error('Failed to load shop data:', err);
+    document.getElementById('product-count').textContent = 'Error loading products';
+    document.getElementById('product-grid').innerHTML =
+      '<div style="grid-column:1/-1; text-align:center; padding:60px 0; color:#e53935; font-size:14px;">Failed to load products. Please refresh the page.</div>';
+  }
+}
+
+init();
 </script>
 </body>
 </html>
+

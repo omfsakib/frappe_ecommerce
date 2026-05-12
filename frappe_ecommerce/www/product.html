@@ -323,144 +323,136 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const PRODUCTS = [
-  {
-    id: 1, name: "Classic Graphic Tee", category: "T-Shirt",
-    price: 1200, oldPrice: 1500, badge: "SALE",
-    colors: [{name:"Navy",hex:"#1a237e"},{name:"Black",hex:"#000"},{name:"White",hex:"#f5f5f5"}],
-    sizes: [{s:"XS",oos:false},{s:"S",oos:false},{s:"M",oos:false},{s:"L",oos:false},{s:"XL",oos:true}],
-    img: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80",
-    thumbs: [
-      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=200&q=80",
-      "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=200&q=80",
-      "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=200&q=80"
-    ],
-    desc: "A timeless graphic tee crafted from 100% premium combed cotton. Soft, breathable, and built to last season after season.",
-    features: ["100% Combed Cotton","Pre-washed for softness","Regular fit","Machine washable"]
-  },
-  {
-    id: 2, name: "Essential Black Tee", category: "T-Shirt",
-    price: 950,
-    colors: [{name:"Black",hex:"#000"},{name:"Charcoal",hex:"#555"},{name:"Brown",hex:"#8b4513"}],
-    sizes: [{s:"XS",oos:false},{s:"S",oos:false},{s:"M",oos:false},{s:"L",oos:false},{s:"XL",oos:false}],
-    img: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&q=80",
-    thumbs: [
-      "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=200&q=80",
-      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=200&q=80"
-    ],
-    desc: "The essential tee every wardrobe needs. Ultra-soft fabric with a clean minimal silhouette for everyday wear.",
-    features: ["Heavyweight 220 GSM cotton","Ribbed crew neck","Relaxed fit","Fade-resistant dye"]
-  },
-  {
-    id: 3, name: "Oversized White Drop", category: "T-Shirt",
-    price: 1400, badge: "NEW",
-    colors: [{name:"White",hex:"#fff"},{name:"Light Grey",hex:"#e0e0e0"},{name:"Silver",hex:"#bdbdbd"}],
-    sizes: [{s:"S",oos:false},{s:"M",oos:false},{s:"L",oos:false},{s:"XL",oos:false},{s:"XXL",oos:false}],
-    img: "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=800&q=80",
-    thumbs: [
-      "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=200&q=80",
-      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=200&q=80"
-    ],
-    desc: "An oversized drop-shoulder tee with a luxuriously smooth feel. Perfect for layering or wearing solo.",
-    features: ["Drop-shoulder cut","Oversized silhouette","Pure white 200 GSM cotton","Minimal branding"]
-  },
-  {
-    id: 4, name: "Indigo Slim Jeans", category: "Pant",
-    price: 2800, oldPrice: 3200, badge: "SALE",
-    colors: [{name:"Indigo",hex:"#1a237e"},{name:"Dark",hex:"#263238"},{name:"Black",hex:"#000"}],
-    sizes: [{s:"30",oos:false},{s:"32",oos:false},{s:"34",oos:false},{s:"36",oos:true}],
-    img: "https://images.unsplash.com/photo-1542272604-787c3835535d?w=800&q=80",
-    thumbs: [
-      "https://images.unsplash.com/photo-1542272604-787c3835535d?w=200&q=80",
-      "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=200&q=80"
-    ],
-    desc: "Slim-fit indigo jeans with a subtle stretch for all-day comfort. Premium denim with modern tailoring.",
-    features: ["98% Cotton 2% Elastane","Slim tapered fit","Reinforced stitching","5-pocket construction"]
-  },
-  {
-    id: 5, name: "Beige Slim Chino", category: "Pant",
-    price: 2400, badge: "NEW",
-    colors: [{name:"Beige",hex:"#d7ccc8"},{name:"Khaki",hex:"#a1887f"},{name:"Brown",hex:"#4e342e"}],
-    sizes: [{s:"30",oos:false},{s:"32",oos:false},{s:"34",oos:false},{s:"36",oos:false},{s:"38",oos:false}],
-    img: "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&q=80",
-    thumbs: [
-      "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=200&q=80",
-      "https://images.unsplash.com/photo-1542272604-787c3835535d?w=200&q=80"
-    ],
-    desc: "Versatile slim chinos that transition effortlessly from office to weekend. Crafted from premium twill cotton.",
-    features: ["100% Premium Twill Cotton","Flat-front slim cut","Side-seam pockets","Wrinkle-resistant finish"]
-  }
-];
-
+/* ───── State ───── */
+const USER = "{{ frappe.session.user }}";
+let product = null;
+let cart = [];
 let qty = 1;
 let selectedSize = null;
 let selectedColor = 0;
 let wished = false;
 
-const params = new URLSearchParams(window.location.search);
-const id = parseInt(params.get('id')) || 1;
-const product = PRODUCTS.find(p => p.id === id) || PRODUCTS[0];
+/* ───── API Helper ───── */
+function apiCall(method, args) {
+  const params = new URLSearchParams(args || {});
+  const qs = params.toString() ? '?' + params.toString() : '';
+  return fetch('/api/method/' + method + qs)
+    .then(r => r.json()).then(d => d.message);
+}
 
-function init() {
-  document.title = product.name + ' — THREAD';
-  document.getElementById('bc-cat').textContent = product.category === 'T-Shirt' ? 'T-Shirts' : 'Pants';
-  document.getElementById('bc-name').textContent = product.name;
-  document.getElementById('info-cat').textContent = product.category;
-  document.getElementById('info-name').textContent = product.name;
-  document.getElementById('info-price').textContent = '৳' + product.price.toLocaleString();
-  document.getElementById('info-desc').textContent = product.desc;
+/* ───── Cookie Helpers ───── */
+function getLocalCart() {
+  const name = "cart=";
+  const decodedCookie = decodeURIComponent(document.cookie);
+  const ca = decodedCookie.split(';');
+  for(let i = 0; i <ca.length; i++) {
+    let c = ca[i];
+    while (c.charAt(0) == ' ') { c = c.substring(1); }
+    if (c.indexOf(name) == 0) {
+      try { return JSON.parse(c.substring(name.length, c.length)); }
+      catch(e) { return []; }
+    }
+  }
+  return [];
+}
 
-  if (product.oldPrice) {
-    document.getElementById('info-old').textContent = '৳' + product.oldPrice.toLocaleString();
+function saveLocalCart(items) {
+  const d = new Date();
+  d.setTime(d.getTime() + (30*24*60*60*1000));
+  const expires = "expires="+ d.toUTCString();
+  document.cookie = "cart=" + JSON.stringify(items) + ";" + expires + ";path=/";
+}
+
+async function syncCart() {
+  if (USER !== 'Guest') {
+    await apiCall('frappe_ecommerce.api.storefront.sync_cart', { cart_items: JSON.stringify(cart) });
+  } else {
+    saveLocalCart(cart);
+  }
+  updateCartBadge();
+}
+
+function updateCartBadge() {
+  const count = cart.reduce((s, i) => s + i.qty, 0);
+  document.querySelectorAll('.cart-badge').forEach(el => el.textContent = count);
+}
+
+/* ───── Render Product Detail ───── */
+function renderProduct(p) {
+  product = p;
+  document.title = p.item_name + ' — THREAD';
+  document.getElementById('bc-cat').textContent = p.category;
+  document.getElementById('bc-name').textContent = p.item_name;
+  document.getElementById('info-cat').textContent = p.category;
+  document.getElementById('info-name').textContent = p.item_name;
+  document.getElementById('info-price').textContent = '৳' + Number(p.price).toLocaleString();
+  document.getElementById('info-desc').textContent = p.description || '';
+
+  if (p.old_price) {
+    document.getElementById('info-old').textContent = '৳' + Number(p.old_price).toLocaleString();
     document.getElementById('info-old').style.display = '';
-    const save = Math.round((1 - product.price / product.oldPrice) * 100);
+    const save = Math.round((1 - p.price / p.old_price) * 100);
     document.getElementById('info-save').textContent = save + '% off';
     document.getElementById('info-save').style.display = '';
   }
 
-  if (product.badge) {
+  if (p.badge) {
     const b = document.getElementById('prod-badge');
-    b.textContent = product.badge; b.style.display = '';
+    b.textContent = p.badge; b.style.display = '';
   }
 
   // Main image
-  document.getElementById('main-img').src = product.img;
+  document.getElementById('main-img').src = p.image || '';
 
-  // Thumbs
+  // Thumbs — use main image as single thumb if no additional images
   const thumbsRow = document.getElementById('thumbs-row');
-  thumbsRow.innerHTML = product.thumbs.map((t, i) =>
-    `<img class="thumb ${i===0?'active':''}" src="${t}" onclick="setThumb(this,'${product.thumbs[i].replace('200','800')}')" />`
-  ).join('');
+  if (p.image) {
+    thumbsRow.innerHTML = `<img class="thumb active" src="${p.image}" onclick="setThumb(this,'${p.image}')" />`;
+  }
 
   // Colors
-  document.getElementById('swatches').innerHTML = product.colors.map((c, i) =>
-    `<button class="swatch-btn ${i===0?'active':''}" style="background:${c.hex}" title="${c.name}" onclick="selectColor(this,${i})"></button>`
-  ).join('');
+  const colors = p.colors || [];
+  if (colors.length > 0) {
+    document.getElementById('swatches').innerHTML = colors.map((c, i) =>
+      `<button class="swatch-btn ${i===0?'active':''}" style="background:${c.hex || c}" title="${c.name || c}" onclick="selectColor(this,${i})"></button>`
+    ).join('');
+  } else {
+    document.getElementById('swatches').parentElement.querySelector('.info-label').style.display = 'none';
+    document.getElementById('swatches').style.display = 'none';
+  }
 
   // Sizes
-  document.getElementById('sizes').innerHTML = product.sizes.map((sz, i) =>
-    `<button class="size-btn${sz.oos?' oos':''}" onclick="${sz.oos?'':('selectSize(this,\''+sz.s+'\')')}">${sz.s}</button>`
-  ).join('');
+  const sizes = p.sizes || [];
+  if (sizes.length > 0) {
+    document.getElementById('sizes').innerHTML = sizes.map(s =>
+      `<button class="size-btn" onclick="selectSize(this,'${s}')">${s}</button>`
+    ).join('');
+  } else {
+    document.getElementById('sizes').parentElement.querySelector('.info-label:nth-of-type(2)') &&
+      (document.getElementById('sizes').previousElementSibling.style.display = 'none');
+    document.getElementById('sizes').style.display = 'none';
+  }
 
-  // Features
-  document.getElementById('info-features').innerHTML = product.features.map(f =>
-    `<li>${f}</li>`
-  ).join('');
+  // Features — extract from description or leave blank
+  document.getElementById('info-features').innerHTML = '';
+}
 
-  // Related
-  const related = PRODUCTS.filter(p => p.id !== product.id).slice(0, 4);
+/* ───── Render Related Products ───── */
+function renderRelated(products, currentName) {
+  const related = products.filter(p => p.name !== currentName).slice(0, 4);
   document.getElementById('related-grid').innerHTML = related.map(p =>
-    `<div class="rel-card" onclick="location.href='/product?id=${p.id}'">
-      <img src="${p.img}" alt="${p.name}" loading="lazy" />
+    `<div class="rel-card" onclick="location.href='/product?name=${encodeURIComponent(p.name)}'">
+      <img src="${p.image || ''}" alt="${p.item_name}" loading="lazy" />
       <div class="rel-card-body">
         <div class="rel-cat">${p.category}</div>
-        <div class="rel-name">${p.name}</div>
-        <div class="rel-price">৳${p.price.toLocaleString()}</div>
+        <div class="rel-name">${p.item_name}</div>
+        <div class="rel-price">৳${Number(p.price).toLocaleString()}</div>
       </div>
     </div>`
   ).join('');
 }
 
+/* ───── UI Interactions ───── */
 function setThumb(el, src) {
   document.getElementById('main-img').src = src;
   document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active'));
@@ -480,12 +472,21 @@ function changeQty(delta) {
   qty = Math.max(1, qty + delta);
   document.getElementById('qty-val').textContent = qty;
 }
-function addToCart() {
-  if (!selectedSize) {
+async function addToCart() {
+  if (!product) return;
+  const sizes = product.sizes || [];
+  if (sizes.length > 0 && !selectedSize) {
     showToast('Please select a size first!');
     return;
   }
-  showToast(`${product.name} (${selectedSize}) × ${qty} added to bag!`);
+  
+  const existing = cart.find(x => x.name === product.name);
+  if (existing) { existing.qty += qty; }
+  else { cart.push({...product, qty: qty}); }
+  
+  await syncCart();
+  const sizeText = selectedSize ? ` (${selectedSize})` : '';
+  showToast(`${product.item_name}${sizeText} × ${qty} added to bag!`);
 }
 function toggleWish() {
   wished = !wished;
@@ -496,6 +497,55 @@ function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+/* ───── Init: fetch from backend ───── */
+async function init() {
+  const params = new URLSearchParams(window.location.search);
+  const itemName = params.get('name');
+
+  if (!itemName) {
+    document.getElementById('info-name').textContent = 'Product not found';
+    return;
+  }
+
+  try {
+    // Fetch product detail and related products in parallel
+    const [productData, allProducts] = await Promise.all([
+      apiCall('frappe_ecommerce.api.storefront.get_product', { name: itemName }),
+      apiCall('frappe_ecommerce.api.storefront.get_products')
+    ]);
+
+    if (!productData) {
+      document.getElementById('info-name').textContent = 'Product not found';
+      return;
+    }
+
+    renderProduct(productData);
+    renderRelated(allProducts || [], itemName);
+
+    // Cart Load
+    if (USER !== 'Guest') {
+      cart = await apiCall('frappe_ecommerce.api.storefront.get_cart') || [];
+      const local = getLocalCart();
+      if (local.length > 0) {
+        local.forEach(l => {
+          const existing = cart.find(c => c.name === l.name);
+          if (existing) { existing.qty += l.qty; }
+          else { cart.push(l); }
+        });
+        saveLocalCart([]); 
+        await syncCart();
+      }
+    } else {
+      cart = getLocalCart();
+    }
+    updateCartBadge();
+
+  } catch (err) {
+    console.error('Failed to load product:', err);
+    document.getElementById('info-name').textContent = 'Error loading product';
+  }
 }
 
 init();

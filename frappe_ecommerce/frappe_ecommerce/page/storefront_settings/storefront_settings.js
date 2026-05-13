@@ -83,6 +83,25 @@ class EcommerceSettingsManager {
 
     <div class="es-grid">
       <div class="es-section">
+        <div class="es-section-title">Shop Page</div>
+        <div class="es-field">
+          <label class="es-label">Hero Title</label>
+          <input type="text" class="es-input" id="es-shop-title" placeholder="e.g. Elevate Your Style">
+        </div>
+        <div class="es-field">
+          <label class="es-label">Hero Subtitle</label>
+          <textarea class="es-input" id="es-shop-subtitle" rows="2" placeholder="e.g. Discover our latest collection..."></textarea>
+        </div>
+        <div class="es-field">
+          <label class="es-label">Hero Background Image</label>
+          <div class="es-image-upload">
+            <div class="es-image-preview" id="es-shop-hero-preview"><span style="color:var(--es-muted); font-size:10px;">No Image</span></div>
+            <button class="es-btn-upload" onclick="window._esm.upload('shop_hero_image')">Change Image</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="es-section">
         <div class="es-section-title">Identity & Branding</div>
         <div class="es-field">
           <label class="es-label">Site Name</label>
@@ -159,11 +178,17 @@ class EcommerceSettingsManager {
 		document.getElementById('es-meta-desc').value = this.settings.meta_description || '';
 		document.getElementById('es-footer-text').value = this.settings.footer_text || '';
 		
+		document.getElementById('es-shop-title').value = this.settings.shop_hero_title || '';
+		document.getElementById('es-shop-subtitle').value = this.settings.shop_hero_subtitle || '';
+		
 		if (this.settings.app_logo) {
 			document.getElementById('es-logo-preview').innerHTML = `<img src="${this.settings.app_logo}">`;
 		}
 		if (this.settings.favicon) {
 			document.getElementById('es-favicon-preview').innerHTML = `<img src="${this.settings.favicon}">`;
+		}
+		if (this.settings.shop_hero_image) {
+			document.getElementById('es-shop-hero-preview').innerHTML = `<img src="${this.settings.shop_hero_image}">`;
 		}
 
 		// Shipping Rules (Link Controls)
@@ -217,7 +242,10 @@ class EcommerceSettingsManager {
 			app_logo: this.settings.app_logo,
 			favicon: this.settings.favicon,
 			inside_city_shipping_rule: this.inside_city_control.get_value(),
-			outside_city_shipping_rule: this.outside_city_control.get_value()
+			outside_city_shipping_rule: this.outside_city_control.get_value(),
+			shop_hero_title: document.getElementById('es-shop-title').value,
+			shop_hero_subtitle: document.getElementById('es-shop-subtitle').value,
+			shop_hero_image: this.settings.shop_hero_image
 		};
 
 		frappe.call({

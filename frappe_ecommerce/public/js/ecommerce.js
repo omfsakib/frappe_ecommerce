@@ -7,7 +7,7 @@ function apiCall(method, args, type = 'GET') {
     method: type,
     headers: {
       'Content-Type': 'application/json',
-      'X-Frappe-CSRF-Token': frappe.csrf_token
+      'X-Frappe-CSRF-Token': csrf_token
     }
   };
 

@@ -11,6 +11,10 @@
   "site_name",
   "app_logo",
   "favicon",
+  "shop_section",
+  "shop_hero_title",
+  "shop_hero_subtitle",
+  "shop_hero_image",
   "shipping_section",
   "inside_city_shipping_rule",
   "outside_city_shipping_rule",
@@ -40,6 +44,28 @@
    "fieldname": "favicon",
    "fieldtype": "Attach Image",
    "label": "Favicon"
+  },
+  {
+   "fieldname": "shop_section",
+   "fieldtype": "Section Break",
+   "label": "Shop Page"
+  },
+  {
+   "fieldname": "shop_hero_title",
+   "fieldtype": "Data",
+   "label": "Hero Title",
+   "default": "Elevate Your Style"
+  },
+  {
+   "fieldname": "shop_hero_subtitle",
+   "fieldtype": "Small Text",
+   "label": "Hero Subtitle",
+   "default": "Discover our latest collection of premium essentials."
+  },
+  {
+   "fieldname": "shop_hero_image",
+   "fieldtype": "Attach Image",
+   "label": "Hero Background Image"
   },
   {
    "fieldname": "shipping_section",

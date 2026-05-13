@@ -122,6 +122,7 @@
 
   <script>
     const USER = "{{ frappe.session.user }}";
+    const csrf_token = "{{ frappe.session.csrf_token }}";
   </script>
   <script src="/assets/frappe_ecommerce/js/ecommerce.js"></script>
   {% block js %}{% endblock %}

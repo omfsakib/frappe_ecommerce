@@ -34,11 +34,11 @@
 
 {% block content %}
 <!-- HERO -->
-<section class="hero">
+<section class="hero" style="{% if settings.shop_hero_image %}background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('{{ settings.shop_hero_image }}'); background-size: cover; background-position: center;{% endif %}">
   <div class="hero-content">
-    <p class="hero-tag">New Collection · 2025</p>
-    <h1>Wear the<br />Difference</h1>
-    <p>Premium essentials crafted for those who appreciate minimal elegance and lasting quality.</p>
+    <p class="hero-tag">New Collection · {{ frappe.utils.nowdate().split('-')[0] }}</p>
+    <h1>{{ (settings.shop_hero_title or "Wear the<br />Difference") | safe }}</h1>
+    <p>{{ settings.shop_hero_subtitle or "Premium essentials crafted for those who appreciate minimal elegance and lasting quality." }}</p>
     <a href="#products" class="btn-primary">
       Shop Now
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -46,7 +46,7 @@
       </svg>
     </a>
   </div>
-  <div class="hero-orb"></div>
+  {% if not settings.shop_hero_image %}<div class="hero-orb"></div>{% endif %}
   <svg class="hero-lines" width="300" height="400" viewBox="0 0 300 400">
     <line x1="0" y1="0" x2="300" y2="400" stroke="white" stroke-width="1" />
     <line x1="40" y1="0" x2="300" y2="320" stroke="white" stroke-width="1" />

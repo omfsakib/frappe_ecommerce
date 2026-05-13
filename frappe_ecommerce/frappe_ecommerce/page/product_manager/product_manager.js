@@ -70,8 +70,8 @@ class ProductManager {
 .pm-card-sizes{font-size:10px;color:var(--pm-muted);margin-top:6px;}
 
 /* DRAWER */
-#pm-drawer{width:420px;height:100%;background:var(--pm-surface);border-left:1px solid var(--pm-border);display:flex;flex-direction:column;position:absolute;top:0;right:0;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:100;box-shadow:-10px 0 30px rgba(0,0,0,0.2);}
-#pm-drawer.open{transform:translateX(0);}
+#pm-drawer{width:420px;height:100%;background:var(--pm-surface);border-left:1px solid var(--pm-border);display:flex;flex-direction:column;position:absolute;top:0;right:0;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1), visibility .3s;z-index:100;box-shadow:-10px 0 30px rgba(0,0,0,0.2);visibility:hidden;}
+#pm-drawer.open{transform:translateX(0);visibility:visible;}
 #pm-drawer-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--pm-border);flex-shrink:0;}
 #pm-drawer-head h3{font-size:15px;font-weight:600;color:var(--pm-text);}
 #pm-drawer-close{background:none;border:none;color:var(--pm-muted);font-size:20px;cursor:pointer;line-height:1;transition:color .2s;}
@@ -144,6 +144,23 @@ class ProductManager {
 .pm-var-table input:focus{border-color:var(--pm-accent);}
 .pm-mdm-btn{background:none;border:1px solid var(--pm-border);color:var(--pm-text);padding:8px 16px;cursor:pointer;font-size:11px;font-weight:600;letter-spacing:1px;transition:all .2s;}
 .pm-mdm-btn:hover{border-color:var(--pm-accent);color:var(--pm-accent);}
+
+@media (max-width: 768px) {
+    #pm-topbar { padding: 12px 16px; flex-direction: column; align-items: stretch; gap: 12px; }
+    #pm-topbar h2 { font-size: 18px; margin-bottom: 4px; }
+    #pm-cat-filters { width: 100%; overflow-x: auto; display: flex; gap: 6px; padding-bottom: 4px; }
+    .pm-cat-btn { white-space: nowrap; padding: 6px 12px; font-size: 10px; }
+    
+    #pm-grid-wrap { padding: 12px; }
+    #pm-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .pm-card-body { padding: 8px; }
+    .pm-card-name { font-size: 11px; }
+    .pm-card-price { font-size: 12px; }
+    
+    #pm-drawer { width: 100%; border-left: none; }
+    #pm-drawer-body { padding: 16px; }
+    #pm-drawer-foot { padding: 12px 16px; }
+}
 `;
 		document.head.appendChild(s);
 
@@ -158,6 +175,8 @@ class ProductManager {
 
 	build_layout() {
 		const page = this.wrapper.querySelector('.page-content') || this.wrapper;
+		page.style.overflow = 'hidden';
+		page.style.position = 'relative';
 		page.innerHTML = `
 <div id="pm-root">
   <div id="pm-topbar">
@@ -679,6 +698,11 @@ class ProductManager {
 
 		if (!data.item_name) { frappe.msgprint('Product name is required.'); return; }
 
+		const btn = document.getElementById('pm-save-btn');
+		const originalText = btn.textContent;
+		btn.disabled = true;
+		btn.textContent = 'Saving...';
+
 		frappe.call({
 			method: 'frappe_ecommerce.api.products.save_product',
 			args: { data: JSON.stringify(data) },
@@ -686,6 +710,10 @@ class ProductManager {
 				frappe.show_alert({ message: 'Product saved!', indicator: 'green' });
 				this.close_drawer();
 				this.load_products(this.active_category);
+			},
+			always: () => {
+				btn.disabled = false;
+				btn.textContent = originalText;
 			}
 		});
 	}
@@ -693,6 +721,11 @@ class ProductManager {
 	delete_product() {
 		if (!this.current || !this.current.name) return;
 		frappe.confirm(`Delete <b>${this.current.item_name}</b>? This cannot be undone.`, () => {
+			const btn = document.getElementById('pm-del-btn');
+			const originalText = btn.textContent;
+			btn.disabled = true;
+			btn.textContent = 'Deleting...';
+
 			frappe.call({
 				method: 'frappe_ecommerce.api.products.delete_product',
 				args: { name: this.current.name },
@@ -700,6 +733,10 @@ class ProductManager {
 					frappe.show_alert({ message: 'Product deleted.', indicator: 'red' });
 					this.close_drawer();
 					this.load_products(this.active_category);
+				},
+				always: () => {
+					btn.disabled = false;
+					btn.textContent = originalText;
 				}
 			});
 		});
@@ -707,15 +744,23 @@ class ProductManager {
 
 	toggle_status() {
 		if (!this.current || !this.current.name) return;
+		const btn = document.getElementById('pm-toggle-btn');
+		const originalText = btn.textContent;
+		btn.disabled = true;
+		btn.textContent = 'Processing...';
+
 		frappe.call({
 			method: 'frappe_ecommerce.api.products.toggle_product_status',
 			args: { name: this.current.name },
 			callback: (r) => {
 				const disabled = r.message.disabled;
-				document.getElementById('pm-toggle-btn').textContent = disabled ? 'Enable' : 'Disable';
 				this.current.disabled = disabled;
 				frappe.show_alert({ message: disabled ? 'Product disabled.' : 'Product enabled.', indicator: disabled ? 'orange' : 'green' });
 				this.load_products(this.active_category);
+			},
+			always: () => {
+				btn.disabled = false;
+				btn.textContent = this.current.disabled ? 'Enable' : 'Disable';
 			}
 		});
 	}

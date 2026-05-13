@@ -1,0 +1,105 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "creation": "2026-05-13 21:30:00.000000",
+ "docstatus": 0,
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "general_section",
+  "site_name",
+  "app_logo",
+  "favicon",
+  "shipping_section",
+  "inside_city_shipping_rule",
+  "outside_city_shipping_rule",
+  "seo_section",
+  "meta_description",
+  "footer_section",
+  "footer_text"
+ ],
+ "fields": [
+  {
+   "fieldname": "general_section",
+   "fieldtype": "Section Break",
+   "label": "General Settings"
+  },
+  {
+   "fieldname": "site_name",
+   "fieldtype": "Data",
+   "label": "Site Name",
+   "default": "THREAD"
+  },
+  {
+   "fieldname": "app_logo",
+   "fieldtype": "Attach Image",
+   "label": "App Logo"
+  },
+  {
+   "fieldname": "favicon",
+   "fieldtype": "Attach Image",
+   "label": "Favicon"
+  },
+  {
+   "fieldname": "shipping_section",
+   "fieldtype": "Section Break",
+   "label": "Shipping"
+  },
+  {
+   "fieldname": "inside_city_shipping_rule",
+   "fieldtype": "Link",
+   "label": "Inside City Shipping Rule",
+   "options": "Shipping Rule"
+  },
+  {
+   "fieldname": "outside_city_shipping_rule",
+   "fieldtype": "Link",
+   "label": "Outside City Shipping Rule",
+   "options": "Shipping Rule"
+  },
+  {
+   "fieldname": "seo_section",
+   "fieldtype": "Section Break",
+   "label": "SEO"
+  },
+  {
+   "fieldname": "meta_description",
+   "fieldtype": "Text",
+   "label": "Meta Description"
+  },
+  {
+   "fieldname": "footer_section",
+   "fieldtype": "Section Break",
+   "label": "Footer"
+  },
+  {
+   "fieldname": "footer_text",
+   "fieldtype": "Small Text",
+   "label": "Footer Text"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-05-13 21:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Frappe Ecommerce",
+ "name": "Ecommerce Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

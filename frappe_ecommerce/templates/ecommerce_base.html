@@ -1,0 +1,131 @@
+{%- set settings = frappe.get_cached_doc("Ecommerce Settings") -%}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}{{ settings.site_name or "THREAD" }} — Premium Fashion{% endblock %}</title>
+  <meta name="description"
+    content="{% block meta_description %}{{ settings.meta_description or "Discover premium fashion. Minimal, modern, effortless style." }}{% endblock %}" />
+  <meta name="author" content="Md Omar Faruk" />
+
+  <!-- SEO / Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="{% block og_title %}{{ settings.site_name or "THREAD" }}{% endblock %}" />
+  <meta property="og:description" content="{% block og_description %}{{ settings.meta_description }}{% endblock %}" />
+  <meta property="og:image" content="{{ settings.app_logo or '' }}" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="{% block twitter_title %}{{ settings.site_name or "THREAD" }}{% endblock %}" />
+  <meta name="twitter:description" content="{% block twitter_description %}{{ settings.meta_description }}{% endblock %}" />
+
+  <link rel="canonical" href="{{ frappe.utils.get_url(frappe.request.path) }}" />
+
+  {% if settings.favicon %}
+  <link rel="icon" href="{{ settings.favicon }}" />
+  {% endif %}
+
+  <!-- JSON-LD Schema -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "{{ settings.site_name or 'THREAD' }}",
+    "url": "{{ frappe.utils.get_url() }}",
+    "logo": "{{ frappe.utils.get_url(settings.app_logo) if settings.app_logo else '' }}",
+    "creator": {
+      "@type": "Person",
+      "name": "Md Omar Faruk",
+      "url": "https://omfsakib.pythonanywhere.com/"
+    }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "{{ settings.site_name or 'THREAD' }}",
+    "url": "{{ frappe.utils.get_url() }}",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "{{ frappe.utils.get_url('/shop') }}?q={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
+  {% block schema %}{% endblock %}
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap"
+    rel="stylesheet" />
+
+  <link rel="stylesheet" href="/assets/frappe_ecommerce/css/ecommerce.css" />
+  {% block css %}{% endblock %}
+</head>
+
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <a href="/shop" class="nav-logo">
+      {% if settings.app_logo %}
+      <img src="{{ settings.app_logo }}" alt="{{ settings.site_name }}" style="height: 28px; width: auto;" />
+      {% else %}
+      {{ settings.site_name or "THREAD" }}
+      {% endif %}
+    </a>
+    {% block nav_links %}
+    <div class="nav-links" id="nav-links">
+      <a href="/shop">Shop</a>
+    </div>
+    {% endblock %}
+    <button class="nav-cart" onclick="toggleCart()" aria-label="Cart" id="cart-btn">
+      <svg class="cart-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
+        <line x1="3" y1="6" x2="21" y2="6" />
+        <path d="M16 10a4 4 0 01-8 0" />
+      </svg>
+      <span class="cart-badge" id="cart-count">0</span>
+    </button>
+  </nav>
+
+  {% block content %}{% endblock %}
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="ft-logo">{{ settings.site_name or "THREAD" }}</div>
+    <p>{{ settings.footer_text or "© 2026 " + (settings.site_name or "THREAD") + ". All rights reserved." }}</p>
+  </footer>
+
+  <!-- CART OVERLAY + DRAWER -->
+  <div class="cart-overlay" id="cart-overlay" onclick="toggleCart()"></div>
+  <div class="cart-drawer" id="cart-drawer">
+    <div class="cart-head">
+      <h3>Your Bag</h3>
+      <button class="cart-close" onclick="toggleCart()">✕</button>
+    </div>
+    <div class="cart-items" id="cart-items">
+      <div class="cart-empty">Your bag is empty.</div>
+    </div>
+    <div class="cart-foot">
+      <div class="cart-total-row">
+        <span class="cart-total-label">Total</span>
+        <span class="cart-total-val" id="cart-total">৳0</span>
+      </div>
+      <button class="btn-checkout" onclick="checkout()">Proceed to Checkout</button>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const USER = "{{ frappe.session.user }}";
+  </script>
+  <script src="/assets/frappe_ecommerce/js/ecommerce.js"></script>
+  {% block js %}{% endblock %}
+
+</body>
+
+</html>

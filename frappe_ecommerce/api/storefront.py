@@ -87,6 +87,12 @@ def get_products(category=None):
         except (json.JSONDecodeError, TypeError):
             pass
 
+        # Variant info
+        has_variants = frappe.db.get_value("Item", item["name"], "has_variants")
+        default_variant = None
+        if has_variants:
+            default_variant = frappe.db.get_value("Item", {"variant_of": item["name"], "disabled": 0}, "name", order_by="creation asc")
+
         result.append({
             "name": item["name"],
             "item_name": item["item_name"],
@@ -97,6 +103,8 @@ def get_products(category=None):
             "badge": item.get("custom_badge") or "",
             "colors": colors,
             "sizes": sizes,
+            "has_variants": bool(has_variants),
+            "default_variant": default_variant
         })
 
     return result
@@ -153,6 +161,28 @@ def get_product(name):
     except (json.JSONDecodeError, TypeError):
         pass
 
+    # Variants map
+    variants = []
+    if doc.has_variants:
+        variant_items = frappe.get_all("Item",
+            filters={"variant_of": doc.name, "disabled": 0},
+            fields=["name"]
+        )
+        for v in variant_items:
+            v_attrs = {}
+            # Fetch attributes from Item Variant Attribute table
+            attrs = frappe.get_all("Item Variant Attribute",
+                filters={"parent": v.name},
+                fields=["attribute", "attribute_value"]
+            )
+            for a in attrs:
+                v_attrs[a.attribute] = a.attribute_value
+            
+            variants.append({
+                "name": v.name,
+                "attributes": v_attrs
+            })
+
     return {
         "name": doc.name,
         "item_name": doc.item_name,
@@ -164,26 +194,62 @@ def get_product(name):
         "badge": doc.get("custom_badge") or "",
         "colors": colors,
         "sizes": sizes,
+        "has_variants": bool(doc.has_variants),
+        "variants": variants
     }
 
 
-def _get_or_create_customer():
+def _get_or_create_customer(phone=None, first_name=None, last_name=None):
     user = frappe.session.user
-    if user == "Guest":
-        return None
+    customer = None
 
-    customer = frappe.db.get_value("Customer", {"email_id": user}, "name")
+    if user != "Guest":
+        customer = frappe.db.get_value("Customer", {"email_id": user}, "name")
+        if customer: return customer
+
+    # For Guest or if not found by email, try phone
+    if phone:
+        customer = frappe.db.get_value("Customer", {"mobile_no": phone}, "name")
+
     if not customer:
-        customer_name = frappe.db.get_value("User", user, "full_name") or user
+        customer_name = f"{first_name or ''} {last_name or ''}".strip()
+        if not customer_name:
+            customer_name = user if user != "Guest" else (phone or "Guest Customer")
+            
         doc = frappe.new_doc("Customer")
         doc.customer_name = customer_name
         doc.customer_type = "Individual"
-        doc.customer_group = "All Customer Groups"
-        doc.territory = "All Territories"
-        doc.email_id = user
+        doc.mobile_no = phone
+        if user != "Guest":
+            doc.email_id = user
+            
+        # Dynamically find a non-group Customer Group and Territory
+        doc.customer_group = frappe.db.get_value("Customer Group", {"is_group": 0}, "name")
+        doc.territory = frappe.db.get_value("Territory", {"is_group": 0}, "name")
+        
         doc.insert(ignore_permissions=True)
         customer = doc.name
+        
     return customer
+
+
+@frappe.whitelist()
+def get_user_details():
+    """Return basic user details to pre-fill the checkout form."""
+    user = frappe.session.user
+    if user == "Guest":
+        return None
+    
+    user_doc = frappe.get_doc("User", user)
+    
+    # Try to get phone from Customer record
+    phone = frappe.db.get_value("Customer", {"email_id": user}, "mobile_no")
+    
+    return {
+        "first_name": user_doc.first_name,
+        "last_name": user_doc.last_name,
+        "phone": phone or user_doc.mobile_no
+    }
 
 
 @frappe.whitelist()
@@ -253,10 +319,28 @@ def sync_cart(cart_items):
         doc.company = company
 
     for item in cart_items:
+        item_code = item.get("name")
+        rate = item.get("price")
+
+        # Template-to-variant safety resolver
+        has_variants = frappe.db.get_value("Item", item_code, "has_variants")
+        if has_variants:
+            # Check if this item_code is a template (not a variant itself)
+            # In ERPNext, a template has has_variants=1 and variant_of=None
+            variant_of = frappe.db.get_value("Item", item_code, "variant_of")
+            if not variant_of:
+                # Resolve to first available variant
+                variant = frappe.db.get_value("Item", {"variant_of": item_code, "disabled": 0}, "name", order_by="creation asc")
+                if variant:
+                    item_code = variant
+                    # Optionally fetch variant price if template price is zero
+                    if not rate:
+                        rate = frappe.db.get_value("Item Price", {"item_code": item_code, "selling": 1, "price_list": "Standard Selling"}, "price_list_rate")
+
         doc.append("items", {
-            "item_code": item.get("name"),
+            "item_code": item_code,
             "qty": item.get("qty"),
-            "rate": item.get("price")
+            "rate": rate
         })
 
     if not doc.items:
@@ -269,3 +353,218 @@ def sync_cart(cart_items):
     doc.save(ignore_permissions=True)
     frappe.db.commit()
     return {"status": "ok", "quotation": doc.name}
+
+
+@frappe.whitelist(allow_guest=True)
+def place_order(**kwargs):
+    """Place an order for Guest or Logged-in users."""
+    user = frappe.session.user
+    
+    phone = kwargs.get("phone")
+    first_name = kwargs.get("first_name")
+    last_name = kwargs.get("last_name")
+
+    if user == "Guest" and not phone:
+        return {"status": "error", "message": "Phone number is required for guest checkout"}
+
+    customer = _get_or_create_customer(phone, first_name, last_name)
+    if not customer:
+        return {"status": "error", "message": "Could not identify or create customer"}
+
+    # Update or create Address
+    address_name = _update_address(customer, kwargs)
+
+    # For Guest, create SO directly from cart_items
+    if user == "Guest":
+        cart_items = kwargs.get("cart_items")
+        if isinstance(cart_items, str):
+            cart_items = json.loads(cart_items)
+            
+        if not cart_items:
+            return {"status": "error", "message": "Cart is empty"}
+            
+        so = frappe.new_doc("Sales Order")
+        so.customer = customer
+        so.transaction_date = frappe.utils.today()
+        so.delivery_date = frappe.utils.add_days(frappe.utils.today(), 3)
+        
+        company = frappe.db.get_default("company")
+        if not company:
+            company = frappe.get_all("Company", limit=1)[0].name
+        so.company = company
+        
+        for item in cart_items:
+            item_code = item.get("name")
+            # Resolve variant if template
+            has_variants = frappe.db.get_value("Item", item_code, "has_variants")
+            if has_variants:
+                variant_of = frappe.db.get_value("Item", item_code, "variant_of")
+                if not variant_of:
+                    v = frappe.db.get_value("Item", {"variant_of": item_code, "disabled": 0}, "name")
+                    if v: item_code = v
+                
+            so.append("items", {
+                "item_code": item_code,
+                "qty": item.get("qty"),
+                "rate": item.get("price") or frappe.db.get_value("Item Price", {"item_code": item_code, "selling": 1, "price_list": "Standard Selling"}, "price_list_rate"),
+                "delivery_date": so.delivery_date
+            })
+        
+        so.customer_address = address_name
+        
+        # Apply Shipping Rule
+        shipping_area = kwargs.get("shipping_area")
+        ecom_settings = frappe.get_cached_doc("Ecommerce Settings")
+        shipping_rule = None
+        if shipping_area == "Inside City":
+            shipping_rule = ecom_settings.inside_city_shipping_rule
+        elif shipping_area == "Outside City":
+            shipping_rule = ecom_settings.outside_city_shipping_rule
+            
+        if shipping_rule:
+            so.shipping_rule = shipping_rule
+            so.run_method("apply_shipping_rule")
+            
+        so.insert(ignore_permissions=True)
+        so.submit()
+        frappe.db.commit()
+        return {"status": "ok", "order_id": so.name}
+
+    else:
+        # Logged-in user logic (Quotation based)
+        # Sync cart one last time (just in case)
+        if kwargs.get("cart_items"):
+            sync_cart(kwargs.get("cart_items"))
+
+        quotation_name = frappe.db.get_value("Quotation",
+            {"party_name": customer, "status": "Draft", "docstatus": 0},
+            "name", order_by="creation desc")
+
+        if not quotation_name:
+            return {"status": "error", "message": "No active cart found"}
+
+        quotation = frappe.get_doc("Quotation", quotation_name)
+        quotation.submit()
+
+        from erpnext.selling.doctype.quotation.quotation import make_sales_order
+        so = make_sales_order(quotation_name)
+        so.customer_address = address_name
+        so.delivery_date = frappe.utils.add_days(frappe.utils.today(), 3)
+        
+        # Apply Shipping Rule
+        shipping_area = kwargs.get("shipping_area")
+        ecom_settings = frappe.get_cached_doc("Ecommerce Settings")
+        shipping_rule = None
+        if shipping_area == "Inside City":
+            shipping_rule = ecom_settings.inside_city_shipping_rule
+        elif shipping_area == "Outside City":
+            shipping_rule = ecom_settings.outside_city_shipping_rule
+            
+        if shipping_rule:
+            so.shipping_rule = shipping_rule
+            so.run_method("apply_shipping_rule")
+        
+        so.save(ignore_permissions=True)
+        so.submit()
+        
+        frappe.db.set_value("Quotation", quotation_name, "status", "Ordered")
+        frappe.db.commit()
+        return {"status": "ok", "order_id": so.name}
+
+
+def _update_address(customer, data):
+    """Create or update an address for the customer."""
+    first_name = data.get('first_name') or "Guest"
+    last_name = data.get('last_name') or ""
+    full_name = f"{first_name} {last_name}".strip()
+    
+    # Check for existing address for this customer specifically
+    existing_address = frappe.db.sql("""
+        SELECT parent FROM `tabDynamic Link` 
+        WHERE link_doctype='Customer' AND link_name=%s AND parenttype='Address'
+        LIMIT 1
+    """, customer)
+
+    if existing_address:
+        address_name = existing_address[0][0]
+        # Update existing address with new details if provided
+        addr = frappe.get_doc("Address", address_name)
+        addr.address_line1 = data.get("address_line1") or addr.address_line1
+        addr.address_line2 = data.get("address_line2") or addr.address_line2
+        addr.city = data.get("city") or addr.city
+        addr.phone = data.get("phone") or addr.phone
+        addr.save(ignore_permissions=True)
+        return address_name
+        
+    # Create new address
+    addr = frappe.new_doc("Address")
+    addr.address_title = full_name
+    addr.address_line1 = data.get("address_line1")
+    addr.address_line2 = data.get("address_line2")
+    addr.city = data.get("city")
+    addr.phone = data.get("phone")
+    addr.address_type = "Shipping"
+    addr.country = "Bangladesh"
+    
+    addr.append("links", {
+        "link_doctype": "Customer",
+        "link_name": customer
+    })
+    addr.insert(ignore_permissions=True)
+    return addr.name
+
+@frappe.whitelist(allow_guest=True)
+def calculate_shipping(shipping_area, cart_items):
+    """Calculate shipping amount based on area and items."""
+    if isinstance(cart_items, str):
+        cart_items = json.loads(cart_items)
+        
+    if not cart_items:
+        return {"amount": 0}
+
+    ecom_settings = frappe.get_cached_doc("Ecommerce Settings")
+    shipping_rule = None
+    if shipping_area == "Inside City":
+        shipping_rule = ecom_settings.inside_city_shipping_rule
+    elif shipping_area == "Outside City":
+        shipping_rule = ecom_settings.outside_city_shipping_rule
+        
+    if not shipping_rule:
+        return {"amount": 0}
+
+    # Create a dummy Sales Order to calculate charges
+    so = frappe.new_doc("Sales Order")
+    company = frappe.db.get_default("company")
+    if not company: company = frappe.get_all("Company", limit=1)[0].name
+    so.company = company
+    
+    # Try to find a dummy customer or use any
+    customer = frappe.db.get_value("Customer", {}, "name")
+    if not customer: return {"amount": 0}
+    so.customer = customer
+    
+    for item in cart_items:
+        so.append("items", {
+            "item_code": item.get("name"),
+            "qty": item.get("qty"),
+            "rate": item.get("price") or 0,
+            "delivery_date": frappe.utils.today()
+        })
+    
+    so.shipping_rule = shipping_rule
+    try:
+        so.run_method("apply_shipping_rule")
+    except Exception:
+        pass
+        
+    shipping_amount = 0
+    # Usually shipping rule adds a tax with description = shipping_rule
+    for tax in so.get("taxes"):
+        if tax.description == shipping_rule or "Shipping" in (tax.description or ""):
+            shipping_amount = tax.tax_amount
+            break
+            
+    if shipping_amount == 0 and so.taxes:
+        shipping_amount = sum(t.tax_amount for t in so.taxes)
+
+    return {"amount": shipping_amount}

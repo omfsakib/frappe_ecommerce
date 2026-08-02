@@ -2,6 +2,41 @@ import frappe
 import json
 
 
+def _get_stock_map(item_codes):
+    """Return {item_code: total actual_qty across warehouses}."""
+    item_codes = [c for c in (item_codes or []) if c]
+    if not item_codes:
+        return {}
+    rows = frappe.db.sql(
+        """
+        SELECT item_code, SUM(actual_qty) AS qty
+        FROM `tabBin`
+        WHERE item_code IN %(item_codes)s
+        GROUP BY item_code
+        """,
+        {"item_codes": item_codes},
+        as_dict=True,
+    )
+    return {r.item_code: float(r.qty or 0) for r in rows}
+
+
+def _is_in_stock(item_code, is_stock_item, stock_map):
+    """Non-stock items are treated as always available; stock items need actual_qty > 0."""
+    if not is_stock_item:
+        return True
+    return stock_map.get(item_code, 0) > 0
+
+
+def clear_storefront_page_cache(doc=None, method=None):
+    """Bust Frappe's cached website page HTML (see cache_html in
+    frappe/website/page_renderers/template_page.py) whenever storefront-wide
+    settings change, so www pages reflect the new values on the next request
+    instead of needing a manual `bench clear-cache`.
+    """
+    from frappe.website.utils import delete_page_cache
+    delete_page_cache(None)
+
+
 @frappe.whitelist(allow_guest=True)
 def get_categories():
     """Return ecommerce categories (Item Groups) for the public storefront."""
@@ -29,7 +64,7 @@ def get_products(category=None):
         filters=filters,
         fields=[
             "name", "item_name", "item_group", "description",
-            "image",
+            "image", "has_variants", "is_stock_item",
             "custom_colors", "custom_sizes", "custom_badge",
             "custom_discount_percentage",
         ],
@@ -51,6 +86,35 @@ def get_products(category=None):
         fields=["item_code", "price_list_rate"],
     )
     price_map = {r["item_code"]: r["price_list_rate"] for r in price_rows}
+
+    # Bulk-fetch variants (+ their Size attribute) for templates that have them
+    template_codes = [i["name"] for i in items if i.get("has_variants")]
+    variants_by_template = {}
+    variant_size_map = {}
+    stock_map = {}
+    if template_codes:
+        variant_rows = frappe.get_all(
+            "Item",
+            filters={"variant_of": ["in", template_codes], "disabled": 0},
+            fields=["name", "variant_of", "is_stock_item"],
+        )
+        variant_codes = [v["name"] for v in variant_rows]
+        for v in variant_rows:
+            variants_by_template.setdefault(v["variant_of"], []).append(v)
+
+        if variant_codes:
+            size_attr_rows = frappe.get_all(
+                "Item Variant Attribute",
+                filters={"parent": ["in", variant_codes], "attribute": "Size"},
+                fields=["parent", "attribute_value"],
+            )
+            variant_size_map = {r["parent"]: r["attribute_value"] for r in size_attr_rows}
+            stock_map = _get_stock_map(variant_codes)
+
+    # Stock for simple (non-variant) stock items
+    simple_stock_codes = [i["name"] for i in items if not i.get("has_variants") and i.get("is_stock_item")]
+    if simple_stock_codes:
+        stock_map.update(_get_stock_map(simple_stock_codes))
 
     result = []
     for item in items:
@@ -87,11 +151,32 @@ def get_products(category=None):
         except (json.JSONDecodeError, TypeError):
             pass
 
-        # Variant info
-        has_variants = frappe.db.get_value("Item", item["name"], "has_variants")
+        # Variant info + stock availability
+        has_variants = item.get("has_variants")
         default_variant = None
+        in_stock = True
+        out_of_stock_sizes = []
+
         if has_variants:
-            default_variant = frappe.db.get_value("Item", {"variant_of": item["name"], "disabled": 0}, "name", order_by="creation asc")
+            item_variants = variants_by_template.get(item["name"], [])
+            if item_variants:
+                default_variant = item_variants[0]["name"]
+
+            in_stock = any(
+                _is_in_stock(v["name"], v.get("is_stock_item"), stock_map)
+                for v in item_variants
+            )
+
+            size_available = {}
+            for v in item_variants:
+                size = variant_size_map.get(v["name"])
+                if not size:
+                    continue
+                available = _is_in_stock(v["name"], v.get("is_stock_item"), stock_map)
+                size_available[size] = size_available.get(size, False) or available
+            out_of_stock_sizes = [s for s in sizes if not size_available.get(s, False)]
+        else:
+            in_stock = _is_in_stock(item["name"], item.get("is_stock_item"), stock_map)
 
         result.append({
             "name": item["name"],
@@ -104,7 +189,9 @@ def get_products(category=None):
             "colors": colors,
             "sizes": sizes,
             "has_variants": bool(has_variants),
-            "default_variant": default_variant
+            "default_variant": default_variant,
+            "in_stock": in_stock,
+            "out_of_stock_sizes": out_of_stock_sizes,
         })
 
     return result
@@ -161,13 +248,15 @@ def get_product(name):
     except (json.JSONDecodeError, TypeError):
         pass
 
-    # Variants map
+    # Variants map + stock availability
     variants = []
+    in_stock = True
     if doc.has_variants:
         variant_items = frappe.get_all("Item",
             filters={"variant_of": doc.name, "disabled": 0},
-            fields=["name"]
+            fields=["name", "is_stock_item"]
         )
+        stock_map = _get_stock_map([v.name for v in variant_items])
         for v in variant_items:
             v_attrs = {}
             # Fetch attributes from Item Variant Attribute table
@@ -177,11 +266,16 @@ def get_product(name):
             )
             for a in attrs:
                 v_attrs[a.attribute] = a.attribute_value
-            
+
             variants.append({
                 "name": v.name,
-                "attributes": v_attrs
+                "attributes": v_attrs,
+                "in_stock": _is_in_stock(v.name, v.is_stock_item, stock_map),
             })
+        in_stock = any(v["in_stock"] for v in variants)
+    else:
+        stock_map = _get_stock_map([doc.name])
+        in_stock = _is_in_stock(doc.name, doc.is_stock_item, stock_map)
 
     return {
         "name": doc.name,
@@ -190,6 +284,7 @@ def get_product(name):
         "description": doc.description or "",
         "image": doc.image or "",
         "price": price,
+        "in_stock": in_stock,
         "old_price": old_price,
         "badge": doc.get("custom_badge") or "",
         "colors": colors,

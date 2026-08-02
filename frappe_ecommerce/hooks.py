@@ -141,6 +141,9 @@ app_license = "mit"
 doc_events = {
 	"Item": {
 		"on_update": "frappe_ecommerce.api.item_events.sync_template_to_variants"
+	},
+	"Ecommerce Settings": {
+		"on_update": "frappe_ecommerce.api.storefront.clear_storefront_page_cache"
 	}
 }
 

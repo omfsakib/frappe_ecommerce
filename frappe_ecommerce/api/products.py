@@ -119,6 +119,19 @@ def _get_item_price(item_code):
     ) or 0
 
 
+def _get_default_company_and_warehouse():
+    """Return (company, warehouse) to post opening stock against."""
+    company = frappe.defaults.get_user_default("Company") or frappe.db.get_default("company")
+    if not company:
+        company = frappe.db.get_value("Company", {}, "name")
+
+    warehouse = None
+    if company:
+        warehouse = frappe.db.get_value("Warehouse", {"company": company, "is_group": 0}, "name")
+
+    return company, warehouse
+
+
 def _get_item_prices_bulk(item_codes):
     """Return {item_code: price_list_rate} for a list of item codes."""
     if not item_codes:
@@ -272,10 +285,12 @@ def _sync_variants(template_doc, colors_data, sizes_data, pricing_data):
     if not color_names: color_names = [""]
     if not size_names: size_names = [""]
 
+    company, warehouse = _get_default_company_and_warehouse()
+
     for c in color_names:
         for s in size_names:
             if not c and not s: continue
-            
+
             key = "-".join(filter(None, [c, s]))
             pricing = pricing_data.get(key, {})
             price = pricing.get("price", 0)
@@ -290,21 +305,24 @@ def _sync_variants(template_doc, colors_data, sizes_data, pricing_data):
 
             if not variant_name:
                 variant_doc = create_variant(template_doc.name, args)
-                opening_stock = pricing.get("opening_stock")
-                if opening_stock:
-                    try:
-                        variant_doc.opening_stock = float(opening_stock)
-                        company = frappe.defaults.get_user_default("Company")
-                        if company:
-                            # Try to set a default warehouse if needed for opening stock
-                            wh = frappe.db.get_value("Warehouse", {"company": company, "is_group": 0}, "name")
-                            if wh: variant_doc.default_warehouse = wh
-                    except Exception:
-                        pass
+                variant_doc.is_stock_item = 1
+
+                try:
+                    opening_stock = float(pricing.get("opening_stock") or 0)
+                except (TypeError, ValueError):
+                    opening_stock = 0
+
+                if opening_stock > 0 and company and warehouse:
+                    variant_doc.opening_stock = opening_stock
+                    variant_doc.valuation_rate = float(price or 0)
+                    variant_doc.append("item_defaults", {
+                        "company": company,
+                        "default_warehouse": warehouse,
+                    })
 
                 variant_doc.insert(ignore_permissions=True)
                 variant_name = variant_doc.name
-            
+
             pricing["saved"] = True
 
             _save_item_price(variant_name, price)
@@ -331,7 +349,6 @@ def save_product(data):
     doc.description  = data.get("description", "")
     doc.image        = data.get("image", "")
     doc.stock_uom    = "Nos"
-    doc.is_stock_item = 0
 
     doc.custom_colors             = data.get("custom_colors", "[]")
     doc.custom_sizes              = data.get("custom_sizes", "[]")
@@ -339,17 +356,21 @@ def save_product(data):
     doc.custom_discount_percentage = float(data.get("custom_discount_percentage") or 0)
     doc.variants_pricing          = data.get("variants_pricing", "{}")
 
-    if is_new:
-        doc.insert(ignore_permissions=True)
-    else:
-        doc.save(ignore_permissions=True)
-
     try:
         colors_data = json.loads(doc.custom_colors) if doc.custom_colors else []
         sizes_data = json.loads(doc.custom_sizes) if doc.custom_sizes else []
         pricing_data = json.loads(doc.variants_pricing) if doc.variants_pricing else {}
     except:
         colors_data, sizes_data, pricing_data = [], [], {}
+
+    # Only variants get real stock tracking (they're the only place stock qty
+    # can be entered today). Simple products stay non-stock i.e. always available.
+    doc.is_stock_item = 1 if (colors_data or sizes_data) else 0
+
+    if is_new:
+        doc.insert(ignore_permissions=True)
+    else:
+        doc.save(ignore_permissions=True)
 
     if colors_data or sizes_data:
         # Sync variants

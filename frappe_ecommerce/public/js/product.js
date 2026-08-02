@@ -74,15 +74,60 @@ function renderProduct(p) {
   const sizesEl = document.getElementById('sizes');
   if (sizesEl) {
     if (sizes.length > 0) {
-      sizesEl.innerHTML = sizes.map(s =>
-        `<button class="size-btn" onclick="selectSize(this,'${s}')">${s}</button>`
-      ).join('');
+      renderSizeButtons();
     } else {
       const label = sizesEl.previousElementSibling;
       if (label && label.classList.contains('info-label')) label.style.display = 'none';
       sizesEl.style.display = 'none';
     }
   }
+
+  refreshAddButtonState();
+}
+
+/* ───── Stock Availability ───── */
+function isSizeAvailable(size) {
+  if (!product || !product.has_variants) return true;
+  const colorLabel = product.colors.length > 0 ? (product.colors[selectedColor].name || product.colors[selectedColor]) : null;
+  return (product.variants || []).some(v => {
+    if (colorLabel && v.attributes['Color'] !== colorLabel) return false;
+    if (v.attributes['Size'] !== size) return false;
+    return v.in_stock;
+  });
+}
+
+function renderSizeButtons() {
+  const sizesEl = document.getElementById('sizes');
+  if (!sizesEl || !product) return;
+  const sizes = product.sizes || [];
+  if (selectedSize && !isSizeAvailable(selectedSize)) selectedSize = null;
+  sizesEl.innerHTML = sizes.map(s => {
+    const available = isSizeAvailable(s);
+    const isActive = selectedSize === s;
+    return `<button class="size-btn ${isActive ? 'active' : ''} ${available ? '' : 'oos'}" ${available ? '' : 'disabled'} onclick="selectSize(this,'${s}')">${s}</button>`;
+  }).join('');
+}
+
+function refreshAddButtonState() {
+  const btn = document.getElementById('btn-add');
+  if (!btn || !product) return;
+
+  let outOfStock = !product.in_stock;
+
+  if (!outOfStock && product.has_variants) {
+    const colorLabel = product.colors.length > 0 ? (product.colors[selectedColor].name || product.colors[selectedColor]) : null;
+    if (colorLabel || selectedSize) {
+      const match = (product.variants || []).find(v => {
+        if (colorLabel && v.attributes['Color'] !== colorLabel) return false;
+        if (selectedSize && v.attributes['Size'] !== selectedSize) return false;
+        return true;
+      });
+      if (match && !match.in_stock) outOfStock = true;
+    }
+  }
+
+  btn.disabled = outOfStock;
+  btn.textContent = outOfStock ? 'Stock Out' : 'Add to Bag';
 }
 
 /* ───── Render Related Products ───── */
@@ -113,11 +158,14 @@ function selectColor(el, idx) {
   selectedColor = idx;
   document.querySelectorAll('.swatch-btn').forEach(s => s.classList.remove('active'));
   el.classList.add('active');
+  renderSizeButtons();
+  refreshAddButtonState();
 }
 function selectSize(el, size) {
+  if (el.disabled) return;
   selectedSize = size;
-  document.querySelectorAll('.size-btn').forEach(s => s.classList.remove('active'));
-  el.classList.add('active');
+  renderSizeButtons();
+  refreshAddButtonState();
 }
 function changeQty(delta) {
   qty = Math.max(1, qty + delta);
@@ -128,12 +176,16 @@ function changeQty(delta) {
 
 async function addToCart() {
   if (!product) return;
+  if (!product.in_stock) {
+    showToast('This item is out of stock.');
+    return;
+  }
   const sizes = product.sizes || [];
   if (sizes.length > 0 && !selectedSize) {
     showToast('Please select a size first!');
     return;
   }
-  
+
   const btn = document.getElementById('btn-add');
   const originalText = btn.textContent;
   btn.disabled = true;
@@ -155,6 +207,12 @@ async function addToCart() {
 
     if (!match) {
       showToast('Selected combination is not available.');
+      btn.disabled = false;
+      btn.textContent = originalText;
+      return;
+    }
+    if (!match.in_stock) {
+      showToast('Selected combination is out of stock.');
       btn.disabled = false;
       btn.textContent = originalText;
       return;

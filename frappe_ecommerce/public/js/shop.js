@@ -36,9 +36,14 @@ function renderProducts(products) {
     return;
   }
 
-  grid.innerHTML = products.map(p => `
+  grid.innerHTML = products.map(p => {
+    const inStock = p.in_stock !== false;
+    const oosSizes = p.out_of_stock_sizes || [];
+    return `
     <div class="card" onclick="openProduct('${p.name.replace(/'/g, "\\'")}')">
-      ${p.badge ? `<span class="card-badge">${p.badge}</span>` : ''}
+      ${!inStock
+        ? `<span class="card-badge card-badge-oos">Stock Out</span>`
+        : (p.badge ? `<span class="card-badge">${p.badge}</span>` : '')}
       <img class="card-img" src="${p.image || ''}" alt="${p.item_name}" loading="lazy" />
       <div class="card-swatches">
         ${(p.colors || []).map(c => `<div class="swatch" style="background:${c}" onclick="event.stopPropagation()"></div>`).join('')}
@@ -51,18 +56,21 @@ function renderProducts(products) {
             <span class="card-price">৳${Number(p.price).toLocaleString()}</span>
             ${p.old_price ? `<span class="card-price-old">৳${Number(p.old_price).toLocaleString()}</span>` : ''}
           </div>
-          <button class="card-add" onclick="event.stopPropagation(); addToCart('${p.name.replace(/'/g, "\\'")}', this)" title="Add to bag">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5">
-              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-          </button>
+          ${inStock
+            ? `<button class="card-add" onclick="event.stopPropagation(); addToCart('${p.name.replace(/'/g, "\\'")}', this)" title="Add to bag">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </button>`
+            : `<button class="card-add card-add-disabled" disabled onclick="event.stopPropagation()" title="Stock Out"></button>`}
         </div>
         <div class="card-sizes" style="margin-top:10px">
-          ${(p.sizes || []).map(s => `<div class="size-dot">${s}</div>`).join('')}
+          ${(p.sizes || []).map(s => `<div class="size-dot ${oosSizes.includes(s) ? 'oos' : ''}">${s}</div>`).join('')}
         </div>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 /* ───── Filter ───── */
@@ -89,6 +97,10 @@ function filterCategory(cat) {
 async function addToCart(itemName, btn) {
   const p = ALL_PRODUCTS.find(x => x.name === itemName);
   if (!p) return;
+  if (p.in_stock === false) {
+    showToast('This item is out of stock.');
+    return;
+  }
 
   // Handle visual feedback
   let originalHTML = '';

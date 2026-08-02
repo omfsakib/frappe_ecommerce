@@ -116,6 +116,8 @@
   border: none; cursor: pointer; transition: background 0.2s;
 }
 .btn-add:hover { background: var(--accent2); }
+.btn-add:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+.btn-add:disabled:hover { background: var(--border); }
 .btn-wish {
   width: 54px; height: 54px;
   border: 1px solid var(--border); background: none;

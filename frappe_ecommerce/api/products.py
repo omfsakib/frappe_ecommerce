@@ -19,6 +19,7 @@ def _ensure_custom_fields():
         {"fieldname": "custom_badge",              "label": "Badge",                  "fieldtype": "Data",       "insert_after": "standard_rate"},
         {"fieldname": "custom_discount_percentage","label": "Discount Percentage",    "fieldtype": "Percent",    "insert_after": "custom_badge"},
         {"fieldname": "variants_pricing",          "label": "Variants Pricing Cache", "fieldtype": "Code",       "insert_after": "custom_discount_percentage"},
+        {"fieldname": "custom_gallery_images",     "label": "Gallery Images (JSON)",  "fieldtype": "Long Text",  "insert_after": "image"},
     ]
     changed = False
     for f in needed:
@@ -218,6 +219,7 @@ def get_product(name):
         "description":              doc.description or "",
         "price":                    _get_item_price(doc.name),
         "image":                    doc.image or "",
+        "custom_gallery_images":    doc.get("custom_gallery_images") or "[]",
         "disabled":                 doc.disabled,
         "custom_colors":            doc.get("custom_colors") or "[]",
         "custom_sizes":             doc.get("custom_sizes") or "[]",
@@ -348,6 +350,7 @@ def save_product(data):
     doc.item_group   = data.get("item_group") or "All Item Groups"
     doc.description  = data.get("description", "")
     doc.image        = data.get("image", "")
+    doc.custom_gallery_images = data.get("custom_gallery_images", "[]")
     doc.stock_uom    = "Nos"
 
     doc.custom_colors             = data.get("custom_colors", "[]")

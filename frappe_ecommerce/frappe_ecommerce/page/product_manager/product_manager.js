@@ -116,17 +116,18 @@ class ProductManager {
 #pm-toggle-btn:hover{border-color:var(--pm-accent);color:var(--pm-accent);}
 .pm-empty{text-align:center;padding:60px 0;color:var(--pm-muted);font-size:14px;}
 .pm-loading{text-align:center;padding:40px;color:var(--pm-muted);}
-.pm-img-wrap{border:1px dashed var(--pm-border);padding:12px;display:flex;flex-direction:column;align-items:center;gap:10px;}
-.pm-img-preview-box{width:100%;aspect-ratio:3/2;background:var(--pm-bg);overflow:hidden;display:flex;align-items:center;justify-content:center;}
-.pm-img-preview-box img{width:100%;height:100%;object-fit:cover;display:block;}
-.pm-img-placeholder{display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--pm-muted);}
-.pm-img-placeholder svg{opacity:.4;}
-.pm-img-placeholder span{font-size:11px;}
+.pm-img-wrap{border:1px dashed var(--pm-border);padding:12px;display:flex;flex-direction:column;gap:10px;}
 .pm-img-actions{display:flex;gap:8px;}
 .pm-attach-btn{padding:7px 16px;background:var(--pm-accent);color:#000;border:none;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:1px;transition:background .2s;}
 .pm-attach-btn:hover{background:var(--pm-accent2);}
-.pm-remove-img{padding:7px 12px;border:1px solid var(--pm-border);background:none;color:var(--pm-muted);font-size:11px;cursor:pointer;transition:all .2s;}
-.pm-remove-img:hover{border-color:var(--pm-danger);color:var(--pm-danger);}
+.pm-gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;width:100%;}
+.pm-gallery-item{position:relative;aspect-ratio:1/1;border:1px solid var(--pm-border);overflow:hidden;background:var(--pm-bg);}
+.pm-gallery-item img{width:100%;height:100%;object-fit:cover;display:block;}
+.pm-gallery-item.is-cover{border-color:var(--pm-accent);}
+.pm-gallery-cover-badge{position:absolute;bottom:0;left:0;right:0;padding:2px 4px;font-size:8px;letter-spacing:1px;text-transform:uppercase;text-align:center;background:var(--pm-accent);color:#000;font-weight:700;}
+.pm-gallery-del{position:absolute;top:2px;right:2px;width:18px;height:18px;border:none;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+.pm-gallery-del:hover{background:var(--pm-danger);}
+.pm-gallery-empty{color:var(--pm-muted);font-size:11px;padding:16px 0;text-align:center;width:100%;}
 .pm-quill-override .frappe-control{margin-bottom:0 !important;}
 .pm-quill-override .ql-editor{min-height:120px !important;background:var(--pm-card) !important;color:var(--pm-text) !important;font-size:13px !important;font-family:'Inter',sans-serif !important;border:1px solid var(--pm-border) !important;}
 .pm-quill-override .ql-toolbar{background:var(--pm-card) !important;border:1px solid var(--pm-border) !important;border-bottom:none !important;}
@@ -355,7 +356,7 @@ class ProductManager {
 			togBtn.style.display = 'none';
 			const defaultGroup = (this.item_groups && this.item_groups[0]) || '';
 			this.current = { item_name: '', item_group: defaultGroup, price: 0, custom_discount_percentage: 0, custom_badge: '', description: '', image: '' };
-			this.current_image_url = '';
+			this.current_gallery_images = [];
 			this.current_colors = [];
 			this.current_sizes = [];
 			this.current_variants_pricing = {};
@@ -368,7 +369,10 @@ class ProductManager {
 				callback: (r) => {
 					const p = r.message;
 					this.current = p;
-					this.current_image_url = p.image || '';
+					try {
+						this.current_gallery_images = JSON.parse(p.custom_gallery_images || '[]');
+					} catch (e) { this.current_gallery_images = []; }
+					if (!this.current_gallery_images.length && p.image) this.current_gallery_images = [p.image];
 					try { this.current_colors = JSON.parse(p.custom_colors || '[]'); } catch (e) { this.current_colors = []; }
 					try { this.current_sizes = JSON.parse(p.custom_sizes || '[]'); } catch (e) { this.current_sizes = []; }
 					try { this.current_variants_pricing = typeof p.variants_pricing === 'string' ? JSON.parse(p.variants_pricing || '{}') : (p.variants_pricing || {}); } catch (e) { this.current_variants_pricing = {}; }
@@ -421,20 +425,11 @@ class ProductManager {
   </div>
 </div>
 <div class="pm-field">
-  <label class="pm-label">Product Image</label>
+  <label class="pm-label">Product Images</label>
   <div class="pm-img-wrap" id="pm-img-wrap">
-    <div class="pm-img-preview-box" id="pm-img-preview-box">
-      ${this.current_image_url
-					? `<img id="pm-img-preview" src="${this.current_image_url}" alt="preview" />`
-					: `<div class="pm-img-placeholder">
-             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-             <span>No image attached</span>
-           </div>`
-				}
-    </div>
+    <div class="pm-gallery-grid" id="pm-gallery-grid"></div>
     <div class="pm-img-actions">
-      <button class="pm-attach-btn" onclick="window._pm.attach_image()">${this.current_image_url ? 'Change Image' : 'Attach Image'}</button>
-      ${this.current_image_url ? '<button class="pm-remove-img" onclick="window._pm.remove_image()">Remove</button>' : ''}
+      <button class="pm-attach-btn" onclick="window._pm.attach_image()">Add Images</button>
     </div>
   </div>
 </div>
@@ -452,6 +447,7 @@ class ProductManager {
 				render_input: true
 			});
 			this.desc_editor.set_value(p.description || '');
+			this.render_gallery();
 
 		} else {
 			const colorOptions = (this.item_attributes?.colors || []).map(c => `<option value="${c.attribute_value}" data-hex="${c.custom_hex_code || ''}"></option>`).join('');
@@ -617,37 +613,41 @@ class ProductManager {
 
 	attach_image() {
 		new frappe.ui.FileUploader({
-			allow_multiple: false,
+			allow_multiple: true,
 			restrictions: { allowed_file_types: ['image/*'] },
 			on_success: (file) => {
-				this.current_image_url = file.file_url;
-				this._refresh_image_preview();
+				this.current_gallery_images.push(file.file_url);
+				this.render_gallery();
 			}
 		});
 	}
 
-	remove_image() {
-		this.current_image_url = '';
-		this._refresh_image_preview();
+	remove_gallery_image(i) {
+		this.current_gallery_images.splice(i, 1);
+		this.render_gallery();
 	}
 
-	_refresh_image_preview() {
-		const box = document.getElementById('pm-img-preview-box');
-		const wrap = document.getElementById('pm-img-wrap');
-		if (!box || !wrap) return;
+	set_cover_image(i) {
+		const [img] = this.current_gallery_images.splice(i, 1);
+		this.current_gallery_images.unshift(img);
+		this.render_gallery();
+	}
 
-		if (this.current_image_url) {
-			box.innerHTML = `<img id="pm-img-preview" src="${this.current_image_url}" alt="preview" />`;
-		} else {
-			box.innerHTML = `<div class="pm-img-placeholder">
-				<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-				<span>No image attached</span></div>`;
+	render_gallery() {
+		const grid = document.getElementById('pm-gallery-grid');
+		if (!grid) return;
+
+		if (!this.current_gallery_images.length) {
+			grid.innerHTML = '<div class="pm-gallery-empty">No images attached yet.</div>';
+			return;
 		}
 
-		const actionsHtml = `
-			<button class="pm-attach-btn" onclick="window._pm.attach_image()">${this.current_image_url ? 'Change Image' : 'Attach Image'}</button>
-			${this.current_image_url ? '<button class="pm-remove-img" onclick="window._pm.remove_image()">Remove</button>' : ''}`;
-		wrap.querySelector('.pm-img-actions').innerHTML = actionsHtml;
+		grid.innerHTML = this.current_gallery_images.map((src, i) => `
+<div class="pm-gallery-item ${i === 0 ? 'is-cover' : ''}" onclick="window._pm.set_cover_image(${i})" title="${i === 0 ? 'Cover image' : 'Click to set as cover'}">
+  <img src="${src}" alt="product image ${i + 1}" />
+  ${i === 0 ? '<span class="pm-gallery-cover-badge">Cover</span>' : ''}
+  <button class="pm-gallery-del" onclick="event.stopPropagation();window._pm.remove_gallery_image(${i})">×</button>
+</div>`).join('');
 	}
 
 	_collect_form() {
@@ -673,7 +673,8 @@ class ProductManager {
 			custom_discount_percentage: document.getElementById('pm-f-discount').value,
 			custom_badge: document.getElementById('pm-f-badge').value.trim().toUpperCase(),
 			description: this.desc_editor ? this.desc_editor.get_value() : (this.current.description || ''),
-			image: this.current_image_url || '',
+			image: this.current_gallery_images[0] || '',
+			custom_gallery_images: JSON.stringify(this.current_gallery_images),
 			custom_colors: JSON.stringify(this.current_colors),
 			custom_sizes: JSON.stringify(this.current_sizes),
 			variants_pricing: JSON.stringify(this.current_variants_pricing)
@@ -690,7 +691,8 @@ class ProductManager {
 			custom_discount_percentage: this.current.custom_discount_percentage,
 			custom_badge: this.current.custom_badge,
 			description: this.current.description,
-			image: this.current.image,
+			image: this.current_gallery_images[0] || '',
+			custom_gallery_images: JSON.stringify(this.current_gallery_images),
 			custom_colors: JSON.stringify(this.current_colors),
 			custom_sizes: JSON.stringify(this.current_sizes),
 			variants_pricing: JSON.stringify(this.current_variants_pricing)

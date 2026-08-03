@@ -224,6 +224,16 @@ def get_product(name):
         price = base_price
         old_price = 0
 
+    # Gallery images (fallback to the cover image for older products)
+    gallery_images = []
+    try:
+        raw = json.loads(doc.get("custom_gallery_images") or "[]")
+        gallery_images = [u for u in raw if u]
+    except (json.JSONDecodeError, TypeError):
+        pass
+    if not gallery_images and doc.image:
+        gallery_images = [doc.image]
+
     # Colors with name + hex
     colors = []
     try:
@@ -283,6 +293,7 @@ def get_product(name):
         "category": doc.item_group,
         "description": doc.description or "",
         "image": doc.image or "",
+        "gallery_images": gallery_images,
         "price": price,
         "in_stock": in_stock,
         "old_price": old_price,

@@ -46,12 +46,16 @@ function renderProduct(p) {
     if (b) { b.textContent = p.badge; b.style.display = ''; }
   }
 
+  const gallery = (p.gallery_images && p.gallery_images.length) ? p.gallery_images : (p.image ? [p.image] : []);
+
   const mainImg = document.getElementById('main-img');
-  if (mainImg) mainImg.src = p.image || '';
+  if (mainImg) mainImg.src = gallery[0] || p.image || '';
 
   const thumbsRow = document.getElementById('thumbs-row');
-  if (thumbsRow && p.image) {
-    thumbsRow.innerHTML = `<img class="thumb active" src="${p.image}" onclick="setThumb(this,'${p.image}')" />`;
+  if (thumbsRow && gallery.length) {
+    thumbsRow.innerHTML = gallery.map((src, i) =>
+      `<img class="thumb ${i === 0 ? 'active' : ''}" src="${src}" onclick="setThumb(this,'${src}')" />`
+    ).join('');
   }
 
   // Colors

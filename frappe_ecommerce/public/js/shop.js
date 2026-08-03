@@ -98,7 +98,7 @@ async function quickAddToCart(itemName, btn) {
   const p = ALL_PRODUCTS.find(x => x.name === itemName);
   if (!p) return;
   if (p.in_stock === false) {
-    showToast('This item is out of stock.');
+    window.showToast('This item is out of stock.');
     return;
   }
 
@@ -115,15 +115,15 @@ async function quickAddToCart(itemName, btn) {
     targetName = p.default_variant;
   }
 
-  const existing = cart.find(x => x.name === targetName);
+  const existing = window.cart.find(x => x.name === targetName);
   if (existing) { existing.qty++; }
-  else { cart.push({...p, name: targetName, qty: 1}); }
-  
+  else { window.cart.push({...p, name: targetName, qty: 1}); }
+
   try {
-    await syncCart();
-    showToast('Added to bag — ' + p.item_name);
+    await window.syncCart();
+    window.showToast('Added to bag — ' + p.item_name);
   } catch (err) {
-    showToast('Failed to add to bag.');
+    window.showToast('Failed to add to bag.');
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -147,8 +147,8 @@ window.openProduct = openProduct;
 async function init() {
   try {
     const [categories, products] = await Promise.all([
-      apiCall('frappe_ecommerce.api.storefront.get_categories'),
-      apiCall('frappe_ecommerce.api.storefront.get_products')
+      window.apiCall('frappe_ecommerce.api.storefront.get_categories'),
+      window.apiCall('frappe_ecommerce.api.storefront.get_products')
     ]);
 
     renderCategories(categories || []);
@@ -156,21 +156,21 @@ async function init() {
     renderProducts(ALL_PRODUCTS);
 
     if (USER !== 'Guest') {
-      cart = await apiCall('frappe_ecommerce.api.storefront.get_cart') || [];
-      const local = getLocalCart();
+      window.cart = await window.apiCall('frappe_ecommerce.api.storefront.get_cart') || [];
+      const local = window.getLocalCart();
       if (local.length > 0) {
         local.forEach(l => {
-          const existing = cart.find(c => c.name === l.name);
+          const existing = window.cart.find(c => c.name === l.name);
           if (existing) { existing.qty += l.qty; }
-          else { cart.push(l); }
+          else { window.cart.push(l); }
         });
-        saveLocalCart([]); 
-        await syncCart();
+        window.saveLocalCart([]);
+        await window.syncCart();
       }
     } else {
-      cart = getLocalCart();
+      window.cart = window.getLocalCart();
     }
-    updateCartUI();
+    window.updateCartUI();
   } catch (err) {
     console.error('Failed to load shop data:', err);
     const countEl = document.getElementById('product-count');

@@ -1,8 +1,12 @@
-/* ───── Checkout Logic ───── */
+/* ───── Checkout Logic ─────
+ * ecommerce.js is a separate module scope, so `cart` and its helpers are
+ * read via `window.*` here — see the note at the top of ecommerce.js. */
 
 function renderSummary() {
   const itemsEl = document.getElementById('summary-items');
   if (!itemsEl) return;
+
+  const cart = window.cart;
 
   if (cart.length === 0) {
     itemsEl.innerHTML = '<div style="text-align:center; padding:20px; color:var(--muted);">Your cart is empty</div>';
@@ -33,11 +37,11 @@ async function updateShippingCharge() {
   if (!area) return;
 
   try {
-    const res = await apiCall('frappe_ecommerce.api.storefront.calculate_shipping', {
+    const res = await window.apiCall('frappe_ecommerce.api.storefront.calculate_shipping', {
       shipping_area: area,
-      cart_items: JSON.stringify(cart)
+      cart_items: JSON.stringify(window.cart)
     }, 'POST');
-    
+
     window.shippingAmount = res.amount || 0;
     document.getElementById('summary-shipping').textContent = '৳' + window.shippingAmount.toLocaleString();
     renderSummary(); // Re-render to update total
@@ -59,24 +63,24 @@ async function placeOrder() {
 
   const formData = new FormData(form);
   const data = Object.fromEntries(formData.entries());
-  data.cart_items = JSON.stringify(cart);
+  data.cart_items = JSON.stringify(window.cart);
 
   try {
-    const response = await apiCall('frappe_ecommerce.api.storefront.place_order', data, 'POST');
+    const response = await window.apiCall('frappe_ecommerce.api.storefront.place_order', data, 'POST');
     if (response && response.order_id) {
       // Success
-      cart = [];
-      saveLocalCart([]);
+      window.cart = [];
+      window.saveLocalCart([]);
       document.getElementById('order-id').textContent = response.order_id;
       document.getElementById('success-overlay').style.display = 'flex';
     } else {
-      showToast('Failed to place order. Please try again.');
+      window.showToast('Failed to place order. Please try again.');
       btn.disabled = false;
       btn.textContent = 'Place Order';
     }
   } catch (err) {
     console.error('Checkout error:', err);
-    showToast('An error occurred during checkout.');
+    window.showToast('An error occurred during checkout.');
     btn.disabled = false;
     btn.textContent = 'Place Order';
   }
@@ -86,10 +90,10 @@ async function initCheckout() {
   // Wait for ecommerce.js to load cart
   if (USER !== 'Guest') {
     const [cartData, userData] = await Promise.all([
-      apiCall('frappe_ecommerce.api.storefront.get_cart'),
-      apiCall('frappe_ecommerce.api.storefront.get_user_details')
+      window.apiCall('frappe_ecommerce.api.storefront.get_cart'),
+      window.apiCall('frappe_ecommerce.api.storefront.get_user_details')
     ]);
-    cart = cartData || [];
+    window.cart = cartData || [];
 
     // Pre-fill form
     if (userData) {
@@ -98,28 +102,30 @@ async function initCheckout() {
       if (userData.phone) document.getElementById('phone').value = userData.phone;
     }
   } else {
-    cart = getLocalCart();
+    window.cart = window.getLocalCart();
   }
 
   // Attach shipping listeners
   document.querySelectorAll('input[name="shipping_area"]').forEach(input => {
     input.addEventListener('change', updateShippingCharge);
   });
-  
+
   // Initial calculation
   await updateShippingCharge();
 
   renderSummary();
 }
 
-// Exposed for the inline onclick handler on the Place Order button — the
-// build bundles this file into a private closure, so it needs to be
-// reachable from window.
+// Exposed for the inline onclick handler on the Place Order button — each
+// bundled file is its own module scope, so it needs to be reachable from
+// window.
 window.placeOrder = placeOrder;
 
-// Override updateCartUI to also update summary if we are on checkout page
-const originalUpdateCartUI = updateCartUI;
-updateCartUI = function () {
+// Override updateCartUI to also update the order summary while on the
+// checkout page. Both read and write go through window since ecommerce.js
+// owns the original definition in its own module scope.
+const originalUpdateCartUI = window.updateCartUI;
+window.updateCartUI = function () {
   originalUpdateCartUI();
   renderSummary();
 };

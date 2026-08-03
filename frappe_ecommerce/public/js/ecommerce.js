@@ -1,5 +1,10 @@
-/* ───── Global State ───── */
-let cart = [];
+/* ───── Global State ─────
+ * Each bundled file (checkout.js, ecommerce.js, product.js, shop.js) is its
+ * own ES module scope, so nothing declared here is visible to the others as
+ * a bare identifier. `cart` and every helper used cross-file is therefore
+ * hung off `window` — see the exposure block near the bottom of this file
+ * and the equivalent blocks in the other files. */
+window.cart = [];
 
 /* ───── API Helper ───── */
 function apiCall(method, args, type = 'GET') {
@@ -50,11 +55,11 @@ function saveLocalCart(items) {
 
 async function syncCart() {
   if (USER !== 'Guest') {
-    await apiCall('frappe_ecommerce.api.storefront.sync_cart', { cart_items: JSON.stringify(cart) });
+    await apiCall('frappe_ecommerce.api.storefront.sync_cart', { cart_items: JSON.stringify(window.cart) });
   } else {
-    saveLocalCart(cart);
+    saveLocalCart(window.cart);
   }
-  updateCartUI();
+  window.updateCartUI();
 }
 
 /* ───── UI Helpers ───── */
@@ -74,6 +79,7 @@ function showToast(msg) {
 }
 
 function updateCartUI() {
+  const cart = window.cart;
   const count = cart.reduce((s, i) => s + i.qty, 0);
   const countEls = document.querySelectorAll('.cart-badge, #cart-count');
   countEls.forEach(el => el.textContent = count);
@@ -109,11 +115,12 @@ function updateCartUI() {
 }
 
 async function changeCartQty(itemName, delta) {
+  const cart = window.cart;
   const idx = cart.findIndex(x => x.name === itemName);
   if (idx === -1) return;
   cart[idx].qty += delta;
   if (cart[idx].qty <= 0) cart.splice(idx, 1);
-  updateCartUI();
+  window.updateCartUI();
   await syncCart();
 }
 
@@ -121,20 +128,26 @@ function checkout() {
   window.location.href = '/checkout';
 }
 
-// Exposed for inline onclick handlers in the nav/cart-drawer markup — the
-// build bundles this file into a private closure, so these need to be
-// reachable from window.
-window.toggleCart = toggleCart;
-window.changeCartQty = changeCartQty;
-window.checkout = checkout;
-
 async function initCart() {
   if (USER !== 'Guest') {
-    cart = await apiCall('frappe_ecommerce.api.storefront.get_cart') || [];
+    window.cart = await apiCall('frappe_ecommerce.api.storefront.get_cart') || [];
   } else {
-    cart = getLocalCart();
+    window.cart = getLocalCart();
   }
-  updateCartUI();
+  window.updateCartUI();
 }
+
+// Exposed on window: needed both for inline onclick handlers in the
+// nav/cart-drawer markup and for cross-file calls from checkout.js,
+// product.js and shop.js (see module-scope note above).
+window.apiCall = apiCall;
+window.getLocalCart = getLocalCart;
+window.saveLocalCart = saveLocalCart;
+window.syncCart = syncCart;
+window.toggleCart = toggleCart;
+window.showToast = showToast;
+window.updateCartUI = updateCartUI;
+window.changeCartQty = changeCartQty;
+window.checkout = checkout;
 
 window.addEventListener('DOMContentLoaded', initCart);

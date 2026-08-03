@@ -181,12 +181,12 @@ function changeQty(delta) {
 async function addToCart() {
   if (!product) return;
   if (!product.in_stock) {
-    showToast('This item is out of stock.');
+    window.showToast('This item is out of stock.');
     return;
   }
   const sizes = product.sizes || [];
   if (sizes.length > 0 && !selectedSize) {
-    showToast('Please select a size first!');
+    window.showToast('Please select a size first!');
     return;
   }
 
@@ -210,13 +210,13 @@ async function addToCart() {
     });
 
     if (!match) {
-      showToast('Selected combination is not available.');
+      window.showToast('Selected combination is not available.');
       btn.disabled = false;
       btn.textContent = originalText;
       return;
     }
     if (!match.in_stock) {
-      showToast('Selected combination is out of stock.');
+      window.showToast('Selected combination is out of stock.');
       btn.disabled = false;
       btn.textContent = originalText;
       return;
@@ -224,25 +224,25 @@ async function addToCart() {
     targetName = match.name;
     targetAttrs = match.attributes;
   }
-  
-  const existing = cart.find(x => x.name === targetName);
+
+  const existing = window.cart.find(x => x.name === targetName);
   if (existing) { existing.qty += qty; }
-  else { 
-    cart.push({
-      ...product, 
-      name: targetName, 
+  else {
+    window.cart.push({
+      ...product,
+      name: targetName,
       qty: qty,
       variant_attributes: targetAttrs
-    }); 
+    });
   }
-  
+
   try {
-    await syncCart();
+    await window.syncCart();
     const attrText = Object.values(targetAttrs).join(' / ');
     const finalLabel = attrText ? `${product.item_name} (${attrText})` : product.item_name;
-    showToast(`${finalLabel} × ${qty} added to bag!`);
+    window.showToast(`${finalLabel} × ${qty} added to bag!`);
   } catch (err) {
-    showToast('Failed to add to bag.');
+    window.showToast('Failed to add to bag.');
   } finally {
     btn.disabled = false;
     btn.textContent = originalText;
@@ -253,11 +253,12 @@ function toggleWish() {
   wished = !wished;
   const btn = document.getElementById('btn-wish');
   if (btn) btn.classList.toggle('active', wished);
-  showToast(wished ? 'Added to wishlist ♥' : 'Removed from wishlist');
+  window.showToast(wished ? 'Added to wishlist ♥' : 'Removed from wishlist');
 }
 
-// Exposed for inline onclick handlers in the product page markup — the
-// build bundles this file into a private closure, so these need to be
+// Exposed for inline onclick handlers in the product page markup, and for
+// completeness with the module-scope note at the top of ecommerce.js — the
+// build treats each file as its own module scope, so these need to be
 // reachable from window.
 window.setThumb = setThumb;
 window.selectColor = selectColor;
@@ -279,8 +280,8 @@ async function init() {
 
   try {
     const [productData, allProducts] = await Promise.all([
-      apiCall('frappe_ecommerce.api.storefront.get_product', { name: itemName }),
-      apiCall('frappe_ecommerce.api.storefront.get_products')
+      window.apiCall('frappe_ecommerce.api.storefront.get_product', { name: itemName }),
+      window.apiCall('frappe_ecommerce.api.storefront.get_products')
     ]);
 
     if (!productData) {
@@ -293,21 +294,21 @@ async function init() {
     renderRelated(allProducts || [], itemName);
 
     if (USER !== 'Guest') {
-      cart = await apiCall('frappe_ecommerce.api.storefront.get_cart') || [];
-      const local = getLocalCart();
+      window.cart = await window.apiCall('frappe_ecommerce.api.storefront.get_cart') || [];
+      const local = window.getLocalCart();
       if (local.length > 0) {
         local.forEach(l => {
-          const existing = cart.find(c => c.name === l.name);
+          const existing = window.cart.find(c => c.name === l.name);
           if (existing) { existing.qty += l.qty; }
-          else { cart.push(l); }
+          else { window.cart.push(l); }
         });
-        saveLocalCart([]); 
-        await syncCart();
+        window.saveLocalCart([]);
+        await window.syncCart();
       }
     } else {
-      cart = getLocalCart();
+      window.cart = window.getLocalCart();
     }
-    updateCartUI();
+    window.updateCartUI();
   } catch (err) {
     console.error('Failed to load product:', err);
   }

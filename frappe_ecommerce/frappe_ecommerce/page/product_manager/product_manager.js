@@ -425,6 +425,11 @@ class ProductManager {
   </div>
 </div>
 <div class="pm-field">
+  <label class="pm-label">Stock Quantity</label>
+  <input class="pm-input" id="pm-f-stock" type="number" min="0" value="${p.stock_qty || 0}" />
+  <span style="display:block;font-size:10px;color:var(--pm-muted);margin-top:5px;">Only used when this product has no color/size variants — variant stock is set in the Variants tab.</span>
+</div>
+<div class="pm-field">
   <label class="pm-label">Product Images</label>
   <div class="pm-img-wrap" id="pm-img-wrap">
     <div class="pm-gallery-grid" id="pm-gallery-grid"></div>
@@ -581,30 +586,22 @@ class ProductManager {
 		const basePrice = document.getElementById('pm-f-price') ? parseFloat(document.getElementById('pm-f-price').value) || 0 : (this.current ? this.current.price || 0 : 0);
 		const baseDisc = document.getElementById('pm-f-discount') ? parseFloat(document.getElementById('pm-f-discount').value) || 0 : (this.current ? this.current.custom_discount_percentage || 0 : 0);
 
-		let html = '<table class="pm-var-table"><thead><tr><th>Variant</th><th>Price (৳)</th><th>Discount (%)</th><th>Opening Stock</th></tr></thead><tbody>';
+		let html = '<table class="pm-var-table"><thead><tr><th>Variant</th><th>Price (৳)</th><th>Discount (%)</th><th>Stock Qty</th></tr></thead><tbody>';
 		combos.forEach(cb => {
-			const key = `${cb.color}-${cb.size}`;
+			const key = [cb.color, cb.size].filter(Boolean).join('-');
 			const existing = this.current_variants_pricing[key] || {};
 			const price = existing.price !== undefined ? existing.price : basePrice;
 			const discount = existing.discount !== undefined ? existing.discount : baseDisc;
-			const opening_stock = existing.opening_stock !== undefined ? existing.opening_stock : '';
-			const is_saved = existing.saved === true;
+			const opening_stock = existing.opening_stock !== undefined ? existing.opening_stock : 0;
 
 			const label = [cb.color, cb.size].filter(Boolean).join(' - ');
-
-			let stock_html = '';
-			if (is_saved) {
-				stock_html = '<span style="color:var(--pm-muted);font-size:10px;">Already Saved</span>';
-			} else {
-				stock_html = `<input type="number" class="pm-var-price-input" data-key="${key}" data-field="opening_stock" value="${opening_stock}" placeholder="0" min="0" />`;
-			}
 
 			html += `
 <tr>
   <td>${label}</td>
   <td><input type="number" class="pm-var-price-input" data-key="${key}" data-field="price" value="${price}" /></td>
   <td><input type="number" class="pm-var-price-input" data-key="${key}" data-field="discount" value="${discount}" min="0" max="100" /></td>
-  <td>${stock_html}</td>
+  <td><input type="number" class="pm-var-price-input" data-key="${key}" data-field="opening_stock" value="${opening_stock}" placeholder="0" min="0" /></td>
 </tr>`;
 		});
 		html += '</tbody></table>';
@@ -675,6 +672,7 @@ class ProductManager {
 			description: this.desc_editor ? this.desc_editor.get_value() : (this.current.description || ''),
 			image: this.current_gallery_images[0] || '',
 			custom_gallery_images: JSON.stringify(this.current_gallery_images),
+			opening_stock: document.getElementById('pm-f-stock').value,
 			custom_colors: JSON.stringify(this.current_colors),
 			custom_sizes: JSON.stringify(this.current_sizes),
 			variants_pricing: JSON.stringify(this.current_variants_pricing)
@@ -693,6 +691,7 @@ class ProductManager {
 			description: this.current.description,
 			image: this.current_gallery_images[0] || '',
 			custom_gallery_images: JSON.stringify(this.current_gallery_images),
+			opening_stock: this.current.stock_qty || 0,
 			custom_colors: JSON.stringify(this.current_colors),
 			custom_sizes: JSON.stringify(this.current_sizes),
 			variants_pricing: JSON.stringify(this.current_variants_pricing)

@@ -133,6 +133,47 @@ def _get_default_company_and_warehouse():
     return company, warehouse
 
 
+def _get_stock_qty(item_code):
+    """Return total actual_qty across warehouses for an item."""
+    qty = frappe.db.sql(
+        "SELECT SUM(actual_qty) FROM `tabBin` WHERE item_code = %s",
+        item_code,
+    )
+    return float(qty[0][0]) if qty and qty[0][0] else 0
+
+
+def _set_stock_qty(item_code, qty, valuation_rate=0):
+    """Set absolute stock qty for an item via a submitted Stock Reconciliation.
+
+    Works for both first-time stock entry and later restocks, unlike Item's
+    built-in opening_stock (which only fires on insert).
+    """
+    try:
+        qty = float(qty)
+    except (TypeError, ValueError):
+        return
+
+    current = _get_stock_qty(item_code)
+    if abs(current - qty) < 0.0001:
+        return
+
+    company, warehouse = _get_default_company_and_warehouse()
+    if not company or not warehouse:
+        return
+
+    doc = frappe.new_doc("Stock Reconciliation")
+    doc.company = company
+    doc.purpose = "Stock Reconciliation"
+    doc.append("items", {
+        "item_code": item_code,
+        "warehouse": warehouse,
+        "qty": qty,
+        "valuation_rate": float(valuation_rate or 0),
+    })
+    doc.insert(ignore_permissions=True)
+    doc.submit()
+
+
 def _get_item_prices_bulk(item_codes):
     """Return {item_code: price_list_rate} for a list of item codes."""
     if not item_codes:
@@ -208,10 +249,67 @@ def get_products(category=None):
     return items
 
 
+def _variant_stock_map(item_codes):
+    """Return {item_code: actual_qty} for a list of variant item codes."""
+    if not item_codes:
+        return {}
+    rows = frappe.db.sql(
+        """
+        SELECT item_code, SUM(actual_qty) AS qty
+        FROM `tabBin`
+        WHERE item_code IN %(codes)s
+        GROUP BY item_code
+        """,
+        {"codes": item_codes},
+        as_dict=True,
+    )
+    return {r.item_code: float(r.qty or 0) for r in rows}
+
+
+def _with_live_variant_stock(doc, pricing_data):
+    """Overwrite cached opening_stock in pricing_data with the current
+    actual_qty per variant, keyed the same way _sync_variants keys them."""
+    if not doc.has_variants:
+        return pricing_data
+
+    variant_rows = frappe.get_all("Item", filters={"variant_of": doc.name}, fields=["name"])
+    variant_codes = [v.name for v in variant_rows]
+    if not variant_codes:
+        return pricing_data
+
+    attr_rows = frappe.get_all(
+        "Item Variant Attribute",
+        filters={"parent": ["in", variant_codes]},
+        fields=["parent", "attribute", "attribute_value"],
+    )
+    attrs_by_variant = {}
+    for r in attr_rows:
+        attrs_by_variant.setdefault(r.parent, {})[r.attribute] = r.attribute_value
+
+    stock_map = _variant_stock_map(variant_codes)
+
+    for v_name, attrs in attrs_by_variant.items():
+        key = "-".join(filter(None, [attrs.get("Color"), attrs.get("Size")]))
+        if not key:
+            continue
+        pricing_data.setdefault(key, {})
+        pricing_data[key]["opening_stock"] = stock_map.get(v_name, 0)
+        pricing_data[key]["saved"] = True
+
+    return pricing_data
+
+
 @frappe.whitelist()
 def get_product(name):
     _ensure_custom_fields()
     doc = frappe.get_doc("Item", name)
+
+    try:
+        pricing_data = json.loads(doc.get("variants_pricing") or "{}")
+    except (json.JSONDecodeError, TypeError):
+        pricing_data = {}
+    pricing_data = _with_live_variant_stock(doc, pricing_data)
+
     return {
         "name":                     doc.name,
         "item_name":                doc.item_name,
@@ -220,12 +318,13 @@ def get_product(name):
         "price":                    _get_item_price(doc.name),
         "image":                    doc.image or "",
         "custom_gallery_images":    doc.get("custom_gallery_images") or "[]",
+        "stock_qty":                _get_stock_qty(doc.name),
         "disabled":                 doc.disabled,
         "custom_colors":            doc.get("custom_colors") or "[]",
         "custom_sizes":             doc.get("custom_sizes") or "[]",
         "custom_badge":             doc.get("custom_badge") or "",
         "custom_discount_percentage": doc.get("custom_discount_percentage") or 0,
-        "variants_pricing":         doc.get("variants_pricing") or "{}",
+        "variants_pricing":         json.dumps(pricing_data),
     }
 
 
@@ -287,8 +386,6 @@ def _sync_variants(template_doc, colors_data, sizes_data, pricing_data):
     if not color_names: color_names = [""]
     if not size_names: size_names = [""]
 
-    company, warehouse = _get_default_company_and_warehouse()
-
     for c in color_names:
         for s in size_names:
             if not c and not s: continue
@@ -308,20 +405,6 @@ def _sync_variants(template_doc, colors_data, sizes_data, pricing_data):
             if not variant_name:
                 variant_doc = create_variant(template_doc.name, args)
                 variant_doc.is_stock_item = 1
-
-                try:
-                    opening_stock = float(pricing.get("opening_stock") or 0)
-                except (TypeError, ValueError):
-                    opening_stock = 0
-
-                if opening_stock > 0 and company and warehouse:
-                    variant_doc.opening_stock = opening_stock
-                    variant_doc.valuation_rate = float(price or 0)
-                    variant_doc.append("item_defaults", {
-                        "company": company,
-                        "default_warehouse": warehouse,
-                    })
-
                 variant_doc.insert(ignore_permissions=True)
                 variant_name = variant_doc.name
 
@@ -329,6 +412,9 @@ def _sync_variants(template_doc, colors_data, sizes_data, pricing_data):
 
             _save_item_price(variant_name, price)
             _save_pricing_rule(variant_name, discount)
+
+            if "opening_stock" in pricing:
+                _set_stock_qty(variant_name, pricing.get("opening_stock") or 0, price)
 
 
 @frappe.whitelist()
@@ -366,9 +452,7 @@ def save_product(data):
     except:
         colors_data, sizes_data, pricing_data = [], [], {}
 
-    # Only variants get real stock tracking (they're the only place stock qty
-    # can be entered today). Simple products stay non-stock i.e. always available.
-    doc.is_stock_item = 1 if (colors_data or sizes_data) else 0
+    doc.is_stock_item = 1
 
     if is_new:
         doc.insert(ignore_permissions=True)
@@ -383,6 +467,8 @@ def save_product(data):
         # Save directly to item
         _save_item_price(doc.name, data.get("price") or 0)
         _save_pricing_rule(doc.name, data.get("custom_discount_percentage") or 0)
+        if "opening_stock" in data:
+            _set_stock_qty(doc.name, data.get("opening_stock") or 0, data.get("price") or 0)
 
     frappe.db.commit()
     return doc.name

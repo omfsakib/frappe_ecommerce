@@ -112,6 +112,11 @@ async function initCheckout() {
   renderSummary();
 }
 
+// Exposed for the inline onclick handler on the Place Order button — the
+// build bundles this file into a private closure, so it needs to be
+// reachable from window.
+window.placeOrder = placeOrder;
+
 // Override updateCartUI to also update summary if we are on checkout page
 const originalUpdateCartUI = updateCartUI;
 updateCartUI = function () {

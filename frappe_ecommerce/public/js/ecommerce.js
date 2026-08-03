@@ -98,9 +98,9 @@ function updateCartUI() {
         <div class="cart-item-row">
           <span class="cart-item-price">৳${Number(item.price).toLocaleString()}</span>
           <div class="qty-control">
-            <button class="qty-btn" onclick="changeQty('${item.name.replace(/'/g, "\\'")}', -1)">−</button>
+            <button class="qty-btn" onclick="changeCartQty('${item.name.replace(/'/g, "\\'")}', -1)">−</button>
             <span class="qty-val">${item.qty}</span>
-            <button class="qty-btn" onclick="changeQty('${item.name.replace(/'/g, "\\'")}', 1)">+</button>
+            <button class="qty-btn" onclick="changeCartQty('${item.name.replace(/'/g, "\\'")}', 1)">+</button>
           </div>
         </div>
       </div>
@@ -108,7 +108,7 @@ function updateCartUI() {
   `).join('');
 }
 
-async function changeQty(itemName, delta) {
+async function changeCartQty(itemName, delta) {
   const idx = cart.findIndex(x => x.name === itemName);
   if (idx === -1) return;
   cart[idx].qty += delta;
@@ -120,6 +120,13 @@ async function changeQty(itemName, delta) {
 function checkout() {
   window.location.href = '/checkout';
 }
+
+// Exposed for inline onclick handlers in the nav/cart-drawer markup — the
+// build bundles this file into a private closure, so these need to be
+// reachable from window.
+window.toggleCart = toggleCart;
+window.changeCartQty = changeCartQty;
+window.checkout = checkout;
 
 async function initCart() {
   if (USER !== 'Guest') {

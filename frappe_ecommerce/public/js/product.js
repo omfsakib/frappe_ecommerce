@@ -256,6 +256,16 @@ function toggleWish() {
   showToast(wished ? 'Added to wishlist ♥' : 'Removed from wishlist');
 }
 
+// Exposed for inline onclick handlers in the product page markup — the
+// build bundles this file into a private closure, so these need to be
+// reachable from window.
+window.setThumb = setThumb;
+window.selectColor = selectColor;
+window.selectSize = selectSize;
+window.changeQty = changeQty;
+window.addToCart = addToCart;
+window.toggleWish = toggleWish;
+
 /* ───── Init ───── */
 async function init() {
   const params = new URLSearchParams(window.location.search);

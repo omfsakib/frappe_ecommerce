@@ -235,6 +235,9 @@ class ProductManager {
 		// Tabs
 		document.querySelectorAll('.pm-tab').forEach(t => {
 			t.addEventListener('click', () => {
+				// Keep whatever is typed in the tab we are leaving — render_tab wipes the DOM
+				this._harvest_variant_inputs();
+				this._harvest_details_inputs();
 				document.querySelectorAll('.pm-tab').forEach(x => x.classList.remove('active'));
 				t.classList.add('active');
 				this.render_tab(t.dataset.tab);
@@ -553,17 +556,37 @@ class ProductManager {
 		this.render_variants_table();
 	}
 
+	/** Pull price/discount/stock typed into the variants table into current_variants_pricing. */
+	_harvest_variant_inputs() {
+		const wrap = document.getElementById('pm-variants-table-wrap');
+		if (!wrap) return;
+		wrap.querySelectorAll('.pm-var-price-input').forEach(inp => {
+			const key = inp.dataset.key;
+			if (!this.current_variants_pricing[key]) this.current_variants_pricing[key] = {};
+			this.current_variants_pricing[key][inp.dataset.field] = parseFloat(inp.value) || 0;
+		});
+	}
+
+	/** Pull the details form back into this.current so nothing is lost on tab switch. */
+	_harvest_details_inputs() {
+		const nameEl = document.getElementById('pm-f-name');
+		if (!nameEl) return;
+		if (!this.current) this.current = {};
+		this.current.item_name = nameEl.value.trim();
+		this.current.item_group = document.getElementById('pm-f-cat').value;
+		this.current.price = document.getElementById('pm-f-price').value;
+		this.current.custom_discount_percentage = document.getElementById('pm-f-discount').value;
+		this.current.custom_badge = document.getElementById('pm-f-badge').value.trim().toUpperCase();
+		this.current.stock_qty = document.getElementById('pm-f-stock').value;
+		if (this.desc_editor) this.current.description = this.desc_editor.get_value();
+	}
+
 	render_variants_table() {
 		const wrap = document.getElementById('pm-variants-table-wrap');
 		if (!wrap) return;
 
 		// Save current inputs
-		const inputs = wrap.querySelectorAll('.pm-var-price-input');
-		inputs.forEach(inp => {
-			const key = inp.dataset.key;
-			if (!this.current_variants_pricing[key]) this.current_variants_pricing[key] = {};
-			this.current_variants_pricing[key][inp.dataset.field] = parseFloat(inp.value) || 0;
-		});
+		this._harvest_variant_inputs();
 
 		// Combinations
 		const combos = [];
@@ -648,19 +671,12 @@ class ProductManager {
 	}
 
 	_collect_form() {
+		// Capture the variants table first — it is the visible tab when the details
+		// fields are absent, and returning early would throw those values away.
+		this._harvest_variant_inputs();
+
 		const nameEl = document.getElementById('pm-f-name');
 		if (!nameEl) return null;
-
-		// Make sure to capture latest pricing inputs if variant tab is active
-		const wrap = document.getElementById('pm-variants-table-wrap');
-		if (wrap) {
-			const inputs = wrap.querySelectorAll('.pm-var-price-input');
-			inputs.forEach(inp => {
-				const key = inp.dataset.key;
-				if (!this.current_variants_pricing[key]) this.current_variants_pricing[key] = {};
-				this.current_variants_pricing[key][inp.dataset.field] = parseFloat(inp.value) || 0;
-			});
-		}
 
 		return {
 			name: this.current && this.current.name ? this.current.name : null,

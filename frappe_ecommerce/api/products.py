@@ -142,6 +142,37 @@ def _get_stock_qty(item_code):
     return float(qty[0][0]) if qty and qty[0][0] else 0
 
 
+def _is_opening_stock_entry():
+    """True while the site has no Stock Ledger Entry at all.
+
+    ERPNext treats the next Stock Reconciliation as an opening entry in that
+    case (stock_reconciliation.validate_expense_account) and rejects a Profit
+    and Loss difference account.
+    """
+    return not frappe.db.sql("SELECT name FROM `tabStock Ledger Entry` LIMIT 1")
+
+
+def _get_opening_difference_account(company):
+    """Balance sheet account to post the opening stock difference against.
+
+    The company default (stock_adjustment_account) is a P&L expense account,
+    which ERPNext refuses on an opening entry — it expects the Temporary
+    Opening account, same as the Stock Reconciliation form does.
+    """
+    account = frappe.db.get_value(
+        "Account",
+        {"company": company, "account_type": "Temporary", "is_group": 0},
+        "name",
+    )
+    if not account:
+        frappe.throw(
+            "No Temporary Opening account found for {0}. Add one under "
+            "Chart of Accounts (account type “Temporary”) so opening stock can "
+            "be posted.".format(company)
+        )
+    return account
+
+
 def _set_stock_qty(item_code, qty, valuation_rate=0):
     """Set absolute stock qty for an item via a submitted Stock Reconciliation.
 
@@ -164,6 +195,8 @@ def _set_stock_qty(item_code, qty, valuation_rate=0):
     doc = frappe.new_doc("Stock Reconciliation")
     doc.company = company
     doc.purpose = "Stock Reconciliation"
+    if _is_opening_stock_entry():
+        doc.expense_account = _get_opening_difference_account(company)
     doc.append("items", {
         "item_code": item_code,
         "warehouse": warehouse,

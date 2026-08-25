@@ -238,6 +238,14 @@ async function addToCart() {
 
   try {
     await window.syncCart();
+    window.trackPixelEvent('AddToCart', {
+      content_ids: [targetName],
+      content_name: product.item_name,
+      content_type: 'product',
+      contents: [{ id: targetName, quantity: qty, item_price: product.price }],
+      value: product.price * qty,
+      currency: 'BDT'
+    });
     const attrText = Object.values(targetAttrs).join(' / ');
     const finalLabel = attrText ? `${product.item_name} (${attrText})` : product.item_name;
     window.showToast(`${finalLabel} × ${qty} added to bag!`);

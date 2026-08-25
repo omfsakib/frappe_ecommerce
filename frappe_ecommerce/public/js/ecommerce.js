@@ -125,7 +125,41 @@ async function changeCartQty(itemName, delta) {
 }
 
 function checkout() {
+  const cart = window.cart || [];
+  if (cart.length > 0) {
+    window.trackPixelEvent('InitiateCheckout', window.cartToPixelContents(cart));
+  }
   window.location.href = '/checkout';
+}
+
+/* ───── Meta Pixel Helpers ─────
+ * fbq is only defined if a Meta Pixel snippet has been pasted into Storefront
+ * Settings → Head Scripts, so every call is guarded — these are no-ops when
+ * no pixel is configured. See frappe_ecommerce.templates.ecommerce_base. */
+function trackPixelEvent(eventName, params, eventId) {
+  if (typeof fbq !== 'function') return;
+  try {
+    if (eventId) {
+      fbq('track', eventName, params || {}, { eventID: String(eventId) });
+    } else {
+      fbq('track', eventName, params || {});
+    }
+  } catch (e) {
+    console.error('Pixel tracking error:', e);
+  }
+}
+
+// Builds Meta's standard `contents`/`content_ids`/`value`/`currency` shape
+// from our cart array. Currency is hardcoded to BDT, matching the ৳ symbol
+// used everywhere else in the storefront (see Company.default_currency).
+function cartToPixelContents(cart) {
+  return {
+    content_ids: cart.map(i => i.name),
+    content_type: 'product',
+    contents: cart.map(i => ({ id: i.name, quantity: i.qty, item_price: i.price })),
+    value: cart.reduce((s, i) => s + i.price * i.qty, 0),
+    currency: 'BDT'
+  };
 }
 
 async function initCart() {
@@ -149,5 +183,7 @@ window.showToast = showToast;
 window.updateCartUI = updateCartUI;
 window.changeCartQty = changeCartQty;
 window.checkout = checkout;
+window.trackPixelEvent = trackPixelEvent;
+window.cartToPixelContents = cartToPixelContents;
 
 window.addEventListener('DOMContentLoaded', initCart);

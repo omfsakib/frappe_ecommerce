@@ -55,6 +55,12 @@ class EcommerceSettingsManager {
 .es-image-preview img { max-width:100%; max-height:100%; object-fit:contain; }
 .es-btn-upload { background:none; border:1px dashed var(--es-accent); color:var(--es-accent); padding:10px 20px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; cursor:pointer; border-radius:4px; }
 
+.es-section-full { grid-column:1 / -1; }
+.es-code-input { width:100%; min-height:140px; padding:12px; background:var(--es-bg); border:1px solid var(--es-border); color:var(--es-text); font-size:13px; font-family:'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; border-radius:4px; resize:vertical; transition:all .2s; }
+.es-code-input:focus { border-color:var(--es-accent); outline:none; box-shadow:0 0 0 2px rgba(200, 169, 126, 0.1); }
+.es-field-hint { font-size:11px; color:var(--es-muted); margin-top:6px; line-height:1.5; }
+.es-code-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:24px; }
+
 #es-footer { display:flex; justify-content:flex-end; gap:12px; margin-top:40px; position:sticky; bottom:20px; }
 .es-btn-save { background:var(--es-accent); color:#000; border:none; padding:16px 48px; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:2px; cursor:pointer; transition:all .2s; border-radius:4px; box-shadow:0 4px 12px rgba(200, 169, 126, 0.2); }
 .es-btn-save:hover { transform:translateY(-2px); box-shadow:0 6px 16px rgba(200, 169, 126, 0.3); }
@@ -150,6 +156,21 @@ class EcommerceSettingsManager {
           <textarea class="es-input" id="es-footer-text" rows="2" placeholder="Copyright © 2026 THREAD..."></textarea>
         </div>
       </div>
+      <div class="es-section es-section-full">
+        <div class="es-section-title">Custom Scripts (Head &amp; Body)</div>
+        <div class="es-code-grid">
+          <div class="es-field" style="margin-bottom:0;">
+            <label class="es-label">Head Scripts</label>
+            <textarea class="es-code-input" id="es-head-html" rows="6" placeholder="<!-- e.g. Meta Pixel, Google Analytics / Tag Manager -->"></textarea>
+            <p class="es-field-hint">Injected just before &lt;/head&gt; on every storefront page. Paste your Meta Pixel base code, GA/GTM snippet, or any other &lt;script&gt;/&lt;meta&gt; tag here.</p>
+          </div>
+          <div class="es-field" style="margin-bottom:0;">
+            <label class="es-label">Body Scripts</label>
+            <textarea class="es-code-input" id="es-body-html" rows="6" placeholder="<!-- e.g. Meta Pixel <noscript> fallback -->"></textarea>
+            <p class="es-field-hint">Injected right after the opening &lt;body&gt; tag. Use this for noscript pixel fallbacks or anything that must render in the body.</p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div id="es-footer">
@@ -180,6 +201,9 @@ class EcommerceSettingsManager {
 		
 		document.getElementById('es-shop-title').value = this.settings.shop_hero_title || '';
 		document.getElementById('es-shop-subtitle').value = this.settings.shop_hero_subtitle || '';
+
+		document.getElementById('es-head-html').value = this.settings.head_html || '';
+		document.getElementById('es-body-html').value = this.settings.body_html || '';
 		
 		if (this.settings.app_logo) {
 			document.getElementById('es-logo-preview').innerHTML = `<img src="${this.settings.app_logo}">`;
@@ -245,7 +269,9 @@ class EcommerceSettingsManager {
 			outside_city_shipping_rule: this.outside_city_control.get_value(),
 			shop_hero_title: document.getElementById('es-shop-title').value,
 			shop_hero_subtitle: document.getElementById('es-shop-subtitle').value,
-			shop_hero_image: this.settings.shop_hero_image
+			shop_hero_image: this.settings.shop_hero_image,
+			head_html: document.getElementById('es-head-html').value,
+			body_html: document.getElementById('es-body-html').value
 		};
 
 		frappe.call({

@@ -21,7 +21,11 @@
   "seo_section",
   "meta_description",
   "footer_section",
-  "footer_text"
+  "footer_text",
+  "custom_scripts_section",
+  "head_html",
+  "column_break_custom_scripts",
+  "body_html"
  ],
  "fields": [
   {
@@ -103,6 +107,29 @@
    "fieldname": "footer_text",
    "fieldtype": "Small Text",
    "label": "Footer Text"
+  },
+  {
+   "fieldname": "custom_scripts_section",
+   "fieldtype": "Section Break",
+   "label": "Custom Scripts (Head & Body)"
+  },
+  {
+   "description": "Raw HTML/JS injected just before the closing &lt;/head&gt; tag on every storefront page. Use this for Meta Pixel, Google Analytics/Tag Manager, or any other tracking/verification scripts.",
+   "fieldname": "head_html",
+   "fieldtype": "Code",
+   "label": "Head Scripts",
+   "options": "HTML"
+  },
+  {
+   "fieldname": "column_break_custom_scripts",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Raw HTML/JS injected just after the opening &lt;body&gt; tag on every storefront page. Use this for tracking pixels/noscript tags that must render in the body (e.g. Meta Pixel noscript fallback).",
+   "fieldname": "body_html",
+   "fieldtype": "Code",
+   "label": "Body Scripts",
+   "options": "HTML"
   }
  ],
  "index_web_pages_for_search": 1,

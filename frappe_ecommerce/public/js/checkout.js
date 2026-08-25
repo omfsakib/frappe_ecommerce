@@ -68,7 +68,10 @@ async function placeOrder() {
   try {
     const response = await window.apiCall('frappe_ecommerce.api.storefront.place_order', data, 'POST');
     if (response && response.order_id) {
-      // Success
+      // Success — fire Purchase before the cart is cleared, using the order
+      // id as the pixel event ID so it can be deduped against a matching
+      // server-side Conversions API event for the same order, if one is added later.
+      window.trackPixelEvent('Purchase', window.cartToPixelContents(window.cart), response.order_id);
       window.cart = [];
       window.saveLocalCart([]);
       document.getElementById('order-id').textContent = response.order_id;

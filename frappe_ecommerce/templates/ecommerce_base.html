@@ -62,9 +62,18 @@
 
     {{include_style('frappe_ecommerce.bundle.css')}}
     {% block css %}{% endblock %}
+
+  {% if settings.head_html %}
+  <!-- Custom Head Scripts -->
+  {{ settings.head_html }}
+  {% endif %}
 </head>
 
 <body>
+  {% if settings.body_html %}
+  <!-- Custom Body Scripts -->
+  {{ settings.body_html }}
+  {% endif %}
 
   <!-- NAV -->
   <nav>
